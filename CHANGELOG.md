@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-07-11
+
 ### Added
 
 - **Bilingual UI (English / German):** commands, settings, and notices now follow the

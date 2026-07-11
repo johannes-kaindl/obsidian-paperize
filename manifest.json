@@ -1,7 +1,7 @@
 {
   "id": "paperize",
   "name": "Paperize",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "minAppVersion": "1.8.7",
   "description": "Export the active note as a clean, text-selectable vector PDF — just the note's content. Works on desktop, iPhone and iPad.",
   "author": "Johannes Kaindl",
