@@ -16,6 +16,7 @@ function runsFrom(node: Node, ctx: { bold: boolean; italic: boolean; code: boole
       const nm = nameOf(c);
       if (nm === 'BR') { acc.push({ text: '\n' }); continue; }
       if (nm === 'IMG') continue; // inline images are ignored inside text runs
+      if (nm === 'UL' || nm === 'OL') continue; // nested lists are handled as separate child blocks
       const next = {
         bold: ctx.bold || nm === 'STRONG' || nm === 'B',
         italic: ctx.italic || nm === 'EM' || nm === 'I',
@@ -96,7 +97,14 @@ export function domToIrSync(root: HTMLElement): { blocks: Block[]; imageEls: HTM
       const el = c as Element;
       const nm = nameOf(el);
       if (/^H[1-6]$/.test(nm)) blocks.push({ type: 'heading', level: Number(nm[1]) as 1, inlines: inlinesOf(el) });
-      else if (nm === 'P') { const inl = inlinesOf(el); if (inl.length) blocks.push({ type: 'paragraph', inlines: inl }); else { const img = el.querySelector('img'); if (img) walk(el); } }
+      else if (nm === 'P') {
+        const inl = inlinesOf(el);
+        if (inl.length) blocks.push({ type: 'paragraph', inlines: inl });
+        for (const img of Array.from(el.querySelectorAll('img'))) {
+          blocks.push({ type: 'image', data: EMPTY, wPx: 0, hPx: 0, alt: img.getAttribute('alt') || undefined });
+          imageEls.push(img as HTMLImageElement);
+        }
+      }
       else if (nm === 'UL' || nm === 'OL') blocks.push({ type: 'list', ordered: nm === 'OL', items: parseList(el) });
       else if (nm === 'BLOCKQUOTE') { const inner: Block[] = []; const sub = domToIrSync(el as HTMLElement); inner.push(...sub.blocks); imageEls.push(...sub.imageEls); unsupportedCount += sub.unsupportedCount; blocks.push({ type: 'blockquote', blocks: inner }); }
       else if (nm === 'PRE') { const code = el.querySelector('code'); const langCls = code ? (code.getAttribute('class') || '') : ''; const lm = /language-(\S+)/.exec(langCls); blocks.push({ type: 'code', lang: lm ? lm[1] : undefined, text: (el.textContent || '') }); }

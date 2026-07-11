@@ -27,6 +27,15 @@ describe('domToIrSync', () => {
     expect(list.type).toBe('list');
     expect(list.items[0].children[0].type).toBe('list');
   });
+  it('does not duplicate nested list text into the parent item inlines', () => {
+    const { blocks } = domToIrSync(dom('<ul><li>top<ul><li>child</li></ul></li></ul>'));
+    const list = blocks[0] as any;
+    const parentText = list.items[0].inlines.map((r: any) => r.text).join('');
+    expect(parentText).toBe('top');
+    const childItem = list.items[0].children[0].items[0];
+    const childText = childItem.inlines.map((r: any) => r.text).join('');
+    expect(childText).toBe('child');
+  });
   it('maps a fenced code block with language', () => {
     const { blocks } = domToIrSync(dom('<pre><code class="language-js">x=1</code></pre>'));
     expect(blocks[0]).toMatchObject({ type: 'code', lang: 'js' });
@@ -48,6 +57,15 @@ describe('domToIrSync', () => {
     expect(blocks[0].type).toBe('image');
     expect(imageEls.length).toBe(1);
   });
+  it('keeps an inline image alongside surrounding paragraph text', () => {
+    const { blocks, imageEls } = domToIrSync(dom('<p>Siehe <img src="fig.png" alt="Fig"> unten</p>'));
+    const para = blocks.find((b: any) => b.type === 'paragraph') as any;
+    expect(para).toBeDefined();
+    expect(para.inlines.map((r: any) => r.text).join('')).toBe('Siehe  unten');
+    const imageBlock = blocks.find((b: any) => b.type === 'image');
+    expect(imageBlock).toBeDefined();
+    expect(imageEls.length).toBe(1);
+  });
 });
 
 describe('resolveImages', () => {
@@ -61,5 +79,21 @@ describe('resolveImages', () => {
     const res = await resolveImages(blocks, imageEls, async () => null);
     expect(res.blocks[0].type).toBe('unsupported');
     expect(res.unsupportedAdded).toBe(1);
+  });
+  it('resolves images to the correct bytes across top-level, blockquote-nested, and trailing positions', async () => {
+    const { blocks, imageEls } = domToIrSync(
+      dom('<p><img src="one.png"></p><blockquote><p><img src="two.png"></p></blockquote><p><img src="three.png"></p>'),
+    );
+    expect(imageEls.length).toBe(3);
+    const decode = async (src: string) => ({ data: new TextEncoder().encode(src), wPx: 1, hPx: 1 });
+    const res = await resolveImages(blocks, imageEls, decode);
+    const topImage = res.blocks.find((b: any) => b.type === 'image') as any;
+    expect(new TextDecoder().decode(topImage.data)).toBe('one.png');
+    const bq = res.blocks.find((b: any) => b.type === 'blockquote') as any;
+    const innerImage = bq.blocks.find((b: any) => b.type === 'image') as any;
+    expect(new TextDecoder().decode(innerImage.data)).toBe('two.png');
+    const trailingImage = res.blocks[res.blocks.length - 1] as any;
+    expect(trailingImage.type).toBe('image');
+    expect(new TextDecoder().decode(trailingImage.data)).toBe('three.png');
   });
 });
