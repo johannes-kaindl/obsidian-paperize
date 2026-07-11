@@ -51,17 +51,23 @@ export default class PaperizePlugin extends Plugin {
     // Render markdown → detached DOM via Obsidian's own parser.
     const holder = createDiv();
     const comp = new Component();
-    await MarkdownRenderer.render(this.app, body, holder, file.path, comp);
-    const { blocks, imageEls, unsupportedCount } = domToIrSync(holder);
-    const resolved = await resolveImages(blocks, imageEls, (src) => this.decodeImage(src, file));
-    comp.unload();
+    let unsupportedCount: number;
+    let resolved: Awaited<ReturnType<typeof resolveImages>>;
+    try {
+      await MarkdownRenderer.render(this.app, body, holder, file.path, comp);
+      const extracted = domToIrSync(holder);
+      unsupportedCount = extracted.unsupportedCount;
+      resolved = await resolveImages(extracted.blocks, extracted.imageEls, (src) => this.decodeImage(src, file));
+    } finally {
+      comp.unload();
+    }
 
     const totalUnsupported = unsupportedCount + resolved.unsupportedAdded;
     const dateStr = todayStr();
-    const options = settingsToOptions(this.settings, this.settings.showTitle ? title : null, dateStr);
+    const options = settingsToOptions(this.settings, title, dateStr);
     const bytes = renderPdf(resolved.blocks, options);
 
-    const attachmentPath = await this.attachmentPathFor(file);
+    const attachmentPath = this.settings.outputMode === 'attachmentFolder' ? await this.attachmentPathFor(file) : '';
     const noteDir = file.parent ? file.parent.path : '';
     await writePdf(this.app, bytes, this.settings.outputMode, {
       noteDir: noteDir === '/' ? '' : noteDir,
