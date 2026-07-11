@@ -8,6 +8,11 @@ import { domToIrSync, resolveImages } from '../core/dom-to-ir';
 import { imageToJpeg } from '../core/image';
 import { renderPdf } from '../vendor/kit/pdf';
 
+// Runtime-only Obsidian API surface not covered by the public typings.
+interface FileManagerExt {
+  getAvailablePathForAttachment?: (filename: string, sourcePath: string) => Promise<string>;
+}
+
 // Local YYYY-MM-DD formatter for the running footer date. Obsidian's global
 // `moment` is intentionally not used here: obsidian.d.ts re-exports it via a
 // namespace import (`import * as Moment from 'moment'`), which causes
@@ -29,7 +34,10 @@ export default class PaperizePlugin extends Plugin {
     this.addSettingTab(new PaperizeSettingTab(this.app, this));
   }
 
-  async loadSettings() { this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData()); }
+  async loadSettings() {
+    const data = (await this.loadData()) as Partial<PaperizeSettings> | null;
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, data ?? {});
+  }
   async saveSettings() { await this.saveData(this.settings); }
 
   private async exportActive(): Promise<void> {
@@ -72,7 +80,7 @@ export default class PaperizePlugin extends Plugin {
     // Re-surface frontmatter as a clean metadata block at the top (after the title).
     const blocks = resolved.blocks;
     if (this.settings.showFrontmatter) {
-      const fm = this.app.metadataCache.getFileCache(file)?.frontmatter as Record<string, unknown> | undefined;
+      const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
       const entries = buildMetadataEntries(fm);
       if (entries.length) blocks.unshift({ type: 'metadata', entries });
     }
@@ -93,7 +101,8 @@ export default class PaperizePlugin extends Plugin {
 
   // Resolve the destination path Obsidian would use for an attachment named <base>.pdf.
   private async attachmentPathFor(file: TFile): Promise<string> {
-    const fm: any = this.app.fileManager as any;
+    // getAvailablePathForAttachment is present at runtime but not in the public typings.
+    const fm = this.app.fileManager as FileManagerExt;
     if (typeof fm.getAvailablePathForAttachment === 'function') {
       return normalizePath(await fm.getAvailablePathForAttachment(`${file.basename}.pdf`, file.path));
     }

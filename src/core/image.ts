@@ -23,7 +23,7 @@ export async function imageToJpeg(
     const scale = Math.min(1, (maxWpx || 1200) / naturalW);
     const wPx = Math.max(1, Math.round(naturalW * scale));
     const hPx = Math.max(1, Math.round(naturalH * scale));
-    const canvas = document.createElement('canvas');
+    const canvas = activeDocument.createElement('canvas');
     canvas.width = wPx;
     canvas.height = hPx;
     const ctx = canvas.getContext('2d');

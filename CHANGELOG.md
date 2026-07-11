@@ -6,6 +6,19 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Image rasterization now uses `activeDocument` instead of `document`, so canvas
+  creation works correctly in Obsidian popout windows.
+
+### Changed
+
+- Internal type-safety and hygiene cleanup addressing the Obsidian community plugin
+  review: removed the unused `builtin-modules` dev dependency, replaced `any` casts on
+  runtime-only APIs (`fileManager.getAvailablePathForAttachment`, `navigator.share`,
+  `app.openWithDefaultApp`) with precise local interfaces, and dropped redundant type
+  assertions. No behavior change.
+
 ## [0.1.0] — 2026-07-11
 
 Initial release.

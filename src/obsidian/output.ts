@@ -2,6 +2,15 @@
 import { App, Notice } from 'obsidian';
 import type { OutputMode } from './settings';
 
+// Runtime-only API surfaces not covered by the standard/Obsidian typings.
+interface ShareCapableNavigator {
+  canShare?: (data: { files: File[] }) => boolean;
+  share?: (data: { files: File[] }) => Promise<void>;
+}
+interface AppWithDefaultApp {
+  openWithDefaultApp?: (path: string) => Promise<void>;
+}
+
 export function sanitizeBase(name: string): string {
   return (name || 'Dokument').replace(/[\\/:*?"<>|]/g, '_').trim() || 'Dokument';
 }
@@ -32,6 +41,7 @@ export async function writePdf(
   ctx: { noteDir: string; baseName: string; customFolder: string; attachmentPath: string; openAfter: boolean },
 ): Promise<{ savedPath: string | null }> {
   const adapter = app.vault.adapter;
+  const appExt = app as AppWithDefaultApp;
   if (mode === 'share') {
     const dir = '.paperize-export';
     const safe = `${sanitizeBase(ctx.baseName)}.pdf`;
@@ -40,18 +50,19 @@ export async function writePdf(
     else await adapter.mkdir(dir);
     await adapter.writeBinary(path, bytes.buffer as ArrayBuffer);
     const fileObj = (typeof File === 'function') ? new File([bytes as BlobPart], safe, { type: 'application/pdf' }) : null;
-    if (fileObj && (navigator as any).canShare && (navigator as any).canShare({ files: [fileObj] })) {
-      try { await (navigator as any).share({ files: [fileObj] }); return { savedPath: null }; }
-      catch (e: any) { if (e && e.name === 'AbortError') return { savedPath: null }; }
+    const nav = navigator as ShareCapableNavigator;
+    if (fileObj && nav.canShare?.({ files: [fileObj] }) && nav.share) {
+      try { await nav.share({ files: [fileObj] }); return { savedPath: null }; }
+      catch (e) { if (e instanceof Error && e.name === 'AbortError') return { savedPath: null }; }
     }
-    if (typeof (app as any).openWithDefaultApp === 'function') await (app as any).openWithDefaultApp(path);
+    if (typeof appExt.openWithDefaultApp === 'function') await appExt.openWithDefaultApp(path);
     return { savedPath: null };
   }
   const path = resolveOutputPath(mode, ctx)!;
   const dir = path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';
   if (dir && !(await adapter.exists(dir))) await adapter.mkdir(dir);
   await adapter.writeBinary(path, bytes.buffer as ArrayBuffer);
-  if (ctx.openAfter && typeof (app as any).openWithDefaultApp === 'function') { try { await (app as any).openWithDefaultApp(path); } catch { /* ignore */ } }
+  if (ctx.openAfter && typeof appExt.openWithDefaultApp === 'function') { try { await appExt.openWithDefaultApp(path); } catch { /* ignore */ } }
   new Notice(`PDF gespeichert: ${path}`);
   return { savedPath: path };
 }

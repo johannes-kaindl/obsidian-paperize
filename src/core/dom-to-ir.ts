@@ -49,7 +49,7 @@ function cellAlign(td: Element): Align | undefined {
   if (s.includes('center')) return 'center';
   if (s.includes('right')) return 'right';
   const a = (td.getAttribute('align') || '').toLowerCase();
-  if (a === 'center' || a === 'right' || a === 'left') return a as Align;
+  if (a === 'center' || a === 'right' || a === 'left') return a;
   return undefined;
 }
 
@@ -72,8 +72,8 @@ export function domToIrSync(
         const nm = nameOf(sub);
         if (nm === 'UL' || nm === 'OL') childBlocks.push({ type: 'list', ordered: nm === 'OL', items: parseList(sub) });
       }
-      if ((li as Element).querySelector('img')) unsupportedCount++;
-      items.push({ inlines: inlinesOf(li as Element), children: childBlocks.length ? childBlocks : undefined });
+      if (li.querySelector('img')) unsupportedCount++;
+      items.push({ inlines: inlinesOf(li), children: childBlocks.length ? childBlocks : undefined });
     }
     return items;
   };
@@ -86,15 +86,15 @@ export function domToIrSync(
     if (thead) {
       const tr = thead.querySelector('tr');
       if (tr) header = Array.from(tr.children).map((td) => {
-        if ((td as Element).querySelector('img')) unsupportedCount++;
-        return { inlines: inlinesOf(td as Element), align: cellAlign(td as Element) };
+        if (td.querySelector('img')) unsupportedCount++;
+        return { inlines: inlinesOf(td), align: cellAlign(td) };
       });
     }
     for (const tr of Array.from(tbody.querySelectorAll('tr'))) {
       if (thead && tr.parentElement && tr.parentElement.nodeName.toUpperCase() === 'THEAD') continue;
       const cells = Array.from(tr.children).map((td) => {
-        if ((td as Element).querySelector('img')) unsupportedCount++;
-        return { inlines: inlinesOf(td as Element), align: cellAlign(td as Element) };
+        if (td.querySelector('img')) unsupportedCount++;
+        return { inlines: inlinesOf(td), align: cellAlign(td) };
       });
       if (cells.length) rows.push(cells);
     }
@@ -114,7 +114,7 @@ export function domToIrSync(
         if (inl.length) blocks.push({ type: 'paragraph', inlines: inl });
         for (const img of Array.from(el.querySelectorAll('img'))) {
           blocks.push({ type: 'image', data: EMPTY, wPx: 0, hPx: 0, alt: img.getAttribute('alt') || undefined });
-          imageEls.push(img as HTMLImageElement);
+          imageEls.push(img);
         }
       }
       else if (nm === 'UL' || nm === 'OL') blocks.push({ type: 'list', ordered: nm === 'OL', items: parseList(el) });

@@ -1,5 +1,5 @@
 // src/obsidian/settings.ts
-import { App, PluginSettingTab, Setting } from 'obsidian';
+import { App, Plugin, PluginSettingTab, Setting } from 'obsidian';
 import { DEFAULT_OPTIONS } from '../vendor/kit/pdf';
 import type { LayoutOptions, FontChoice } from '../vendor/kit/pdf';
 
@@ -71,7 +71,7 @@ export function settingsToOptions(s: PaperizeSettings, title: string | null, dat
 
 export class PaperizeSettingTab extends PluginSettingTab {
   constructor(app: App, private plugin: { settings: PaperizeSettings; saveSettings: () => Promise<void> }) {
-    super(app, plugin as any);
+    super(app, plugin as unknown as Plugin);
   }
   display(): void {
     const { containerEl } = this;
