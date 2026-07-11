@@ -1,6 +1,6 @@
 # Sicherheitsrichtlinie
 
-> [🇬🇧 English](https://github.com/jkaindl/obsidian-paperize/blob/main/SECURITY.md) · 🇩🇪 Deutsch
+> [🇬🇧 English](https://github.com/johannes-kaindl/obsidian-paperize/blob/main/SECURITY.md) · 🇩🇪 Deutsch
 
 ## Unterstützte Versionen
 Die jeweils zuletzt veröffentlichte Version erhält Sicherheits-Updates.

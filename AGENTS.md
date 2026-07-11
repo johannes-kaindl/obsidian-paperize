@@ -65,7 +65,7 @@ Unterschied zu Letterheads Zero-Build-Attestation baut dieser Workflow das Plugi
 aus dem getaggten Commit (`npm run gate`, inkl. `build`) und attestiert **das
 Build-Ergebnis** (`main.js`/`manifest.json`/`styles.css`) — das attestierte Subjekt ist
 also kein committeter Quelltext, sondern der reproduzierbar erzeugte Output. Details und
-Einordnung: [`SECURITY.md`](https://github.com/jkaindl/obsidian-paperize/blob/main/SECURITY.md).
+Einordnung: [`SECURITY.md`](https://github.com/johannes-kaindl/obsidian-paperize/blob/main/SECURITY.md).
 
 - `scripts/release.mjs` (`npm run release -- <version>`) bündelt Versions-Bump (siehe
   `scripts/version-bump.mjs`), CHANGELOG-Rewrite, Commit, Tag, Push nach Codeberg
