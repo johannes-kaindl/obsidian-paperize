@@ -6,7 +6,7 @@
 import { describe, it, expect } from 'vitest';
 import { writeFileSync } from 'node:fs';
 import { domToIrSync, resolveImages } from '../src/core/dom-to-ir';
-import { renderPdf, DEFAULT_OPTIONS } from '../src/vendor/kit/pdf';
+import { renderPdf, DEFAULT_OPTIONS, layoutDocument } from '../src/vendor/kit/pdf';
 
 // A valid 1×1 JPEG so the image block embeds a real DCTDecode XObject.
 const JPEG_1x1_B64 =
@@ -55,6 +55,24 @@ describe('render-sample (headless E2E)', () => {
     const { blocks, imageEls, unsupportedCount } = domToIrSync(holder);
     const resolved = await resolveImages(blocks, imageEls, async () => ({ data: jpegBytes(), wPx: 1, hPx: 1 }));
 
+    // Exercise the pagination engine: a manual pagebreak, then a long table (>60 rows) so
+    // it must split across pages, repeating its header row on each continuation page.
+    resolved.blocks.push({ type: 'pagebreak' });
+    const longTable = {
+      type: 'table' as const,
+      header: [
+        { inlines: [{ text: 'Nr.' }] },
+        { inlines: [{ text: 'Bezeichnung' }] },
+        { inlines: [{ text: 'Status' }] },
+      ],
+      rows: Array.from({ length: 65 }, (_, i) => [
+        { inlines: [{ text: String(i + 1) }] },
+        { inlines: [{ text: `Position ${i + 1}` }] },
+        { inlines: [{ text: i % 2 === 0 ? 'offen' : 'erledigt' }] },
+      ]),
+    };
+    resolved.blocks.push(longTable);
+
     const options = { ...DEFAULT_OPTIONS, frame: { ...DEFAULT_OPTIONS.frame, title: '🚦 Paperize Beispiel', pageNumbers: true } };
     // Simulate main.ts prepending a frontmatter metadata block after the title.
     resolved.blocks.unshift({ type: 'metadata', entries: [
@@ -63,7 +81,16 @@ describe('render-sample (headless E2E)', () => {
       { key: 'updated', value: '2026-07-08' },
       { key: 'tags', value: 'cockpit, was-jetzt' },
     ] });
+    const { pageCount, ops } = layoutDocument(resolved.blocks, options);
     const bytes = renderPdf(resolved.blocks, options);
+
+    // Header-repeat: the header text "Bezeichnung" must appear as a text op on more than
+    // one page once the table spans multiple pages.
+    const headerPages = new Set(
+      ops.filter((op) => op.kind === 'text' && op.str === 'Bezeichnung').map((op) => op.page),
+    );
+    expect(pageCount).toBeGreaterThan(1);
+    expect(headerPages.size).toBeGreaterThan(1);
 
     writeFileSync(`${process.cwd()}/tools/sample-output.pdf`, bytes);
 
