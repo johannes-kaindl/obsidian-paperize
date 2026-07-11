@@ -6,6 +6,20 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Bilingual UI (English / German):** commands, settings, and notices now follow the
+  Obsidian display language automatically — no separate setting. Built on the shared kit
+  i18n module, vendored under `src/vendor/kit/i18n.ts` with the plugin's string tables in
+  `src/i18n/strings.ts`.
+
+### Changed
+
+- **Minimum Obsidian version raised to 1.8.7** — required by the native `getLanguage()`
+  API used to detect the display language (matching the other plugins in the family).
+- Reworded the tagline and plugin description (dropped the "no letterhead, no branding"
+  phrasing) in both READMEs and `manifest.json`.
+
 ## [0.1.1] — 2026-07-11
 
 ### Fixed

@@ -2,6 +2,7 @@
 import { App, Plugin, PluginSettingTab, Setting } from 'obsidian';
 import { DEFAULT_OPTIONS } from '../vendor/kit/pdf';
 import type { LayoutOptions, FontChoice } from '../vendor/kit/pdf';
+import { t } from '../vendor/kit/i18n';
 
 export type OutputMode = 'nextToNote' | 'attachmentFolder' | 'customFolder' | 'share';
 
@@ -79,46 +80,46 @@ export class PaperizeSettingTab extends PluginSettingTab {
     const s = this.plugin.settings;
     const save = () => this.plugin.saveSettings();
 
-    new Setting(containerEl).setName('Schriftfamilie').setDesc('Basis-Font (nur Standardschriften).')
+    new Setting(containerEl).setName(t('settings.font.name')).setDesc(t('settings.font.desc'))
       .addDropdown((d) => d.addOptions({ sans: 'Sans (Helvetica)', serif: 'Serif (Times)', mono: 'Mono (Courier)' })
         .setValue(s.fontChoice).onChange(async (v) => { s.fontChoice = v as FontChoice; await save(); }));
-    new Setting(containerEl).setName('Schriftgröße (pt)').addText((t) => t.setValue(String(s.baseSizePt))
+    new Setting(containerEl).setName(t('settings.fontSize.name')).addText((txt) => txt.setValue(String(s.baseSizePt))
       .onChange(async (v) => { const n = Number(v); if (n >= 6 && n <= 24) { s.baseSizePt = n; await save(); } }));
-    new Setting(containerEl).setName('Seitenmaß').addDropdown((d) => d.addOptions({ A4: 'A4', Letter: 'Letter' })
+    new Setting(containerEl).setName(t('settings.pageSize.name')).addDropdown((d) => d.addOptions({ A4: 'A4', Letter: 'Letter' })
       .setValue(s.pageSize).onChange(async (v) => { s.pageSize = v as 'A4' | 'Letter'; await save(); }));
     // Lower bound is 12mm, not the engine's theoretical minimum: below ~11mm bottom margin the
     // fixed-offset footer/page-number draws fall off the page. Proper fix is an engine-side
     // clamp upstream in the kit (src/vendor/kit/pdf/*); this is a plugin-side guard rail.
-    new Setting(containerEl).setName('Ränder (mm)').addText((t) => t.setValue(String(s.marginMm))
+    new Setting(containerEl).setName(t('settings.margins.name')).addText((txt) => txt.setValue(String(s.marginMm))
       .onChange(async (v) => { const n = Number(v); if (n >= 12 && n <= 50) { s.marginMm = n; await save(); } }));
-    new Setting(containerEl).setName('Frontmatter als Metadaten-Block zeigen')
-      .setDesc('Frontmatter erscheint als dezente Metadaten-Liste oben (statt als roher YAML-Block). Aus = ganz weglassen.')
-      .addToggle((t) => t.setValue(s.showFrontmatter)
+    new Setting(containerEl).setName(t('settings.frontmatter.name'))
+      .setDesc(t('settings.frontmatter.desc'))
+      .addToggle((tg) => tg.setValue(s.showFrontmatter)
         .onChange(async (v) => { s.showFrontmatter = v; await save(); }));
-    new Setting(containerEl).setName('Titel oben').addToggle((t) => t.setValue(s.showTitle)
+    new Setting(containerEl).setName(t('settings.title.name')).addToggle((tg) => tg.setValue(s.showTitle)
       .onChange(async (v) => { s.showTitle = v; await save(); }));
-    new Setting(containerEl).setName('Seitenzahlen').addToggle((t) => t.setValue(s.pageNumbers)
+    new Setting(containerEl).setName(t('settings.pageNumbers.name')).addToggle((tg) => tg.setValue(s.pageNumbers)
       .onChange(async (v) => { s.pageNumbers = v; await save(); }));
-    new Setting(containerEl).setName('Laufende Fußzeile (Titel/Datum)').addToggle((t) => t.setValue(s.runningHeaderFooter)
+    new Setting(containerEl).setName(t('settings.footer.name')).addToggle((tg) => tg.setValue(s.runningHeaderFooter)
       .onChange(async (v) => { s.runningHeaderFooter = v; await save(); }));
-    new Setting(containerEl).setName('Ausgabeziel').addDropdown((d) => d.addOptions({
-      nextToNote: 'Neben der Notiz', attachmentFolder: 'Obsidian-Anhangordner', customFolder: 'Eigener Ordner', share: 'Aus Vault teilen/öffnen',
+    new Setting(containerEl).setName(t('settings.output.name')).addDropdown((d) => d.addOptions({
+      nextToNote: t('settings.output.nextToNote'), attachmentFolder: t('settings.output.attachmentFolder'), customFolder: t('settings.output.customFolder'), share: t('settings.output.share'),
     }).setValue(s.outputMode).onChange(async (v) => { s.outputMode = v as OutputMode; await save(); }));
-    new Setting(containerEl).setName('Eigener Ausgabe-Ordner').setDesc('Nur bei „Eigener Ordner".')
-      .addText((t) => t.setValue(s.customFolder).onChange(async (v) => { s.customFolder = v.trim(); await save(); }));
+    new Setting(containerEl).setName(t('settings.customFolder.name')).setDesc(t('settings.customFolder.desc'))
+      .addText((txt) => txt.setValue(s.customFolder).onChange(async (v) => { s.customFolder = v.trim(); await save(); }));
 
-    new Setting(containerEl).setName('Seitenumbruch-Marker').setDesc('Ein Absatz, der genau diesem Text entspricht, erzwingt einen Seitenumbruch. Leer = Funktion aus.')
-      .addText((t) => t.setValue(s.pageBreakMarker).onChange(async (v) => { s.pageBreakMarker = v; await save(); }));
-    new Setting(containerEl).setName('Tabellen zusammenhalten').setDesc('Eine Tabelle, die auf eine Seite passt, wird nicht mittendrin umbrochen.')
-      .addToggle((t) => t.setValue(s.keepTablesTogether).onChange(async (v) => { s.keepTablesTogether = v; await save(); }));
-    new Setting(containerEl).setName('Tabellenkopf wiederholen').setDesc('Bei einer Tabelle, die über mehrere Seiten läuft, wird die Kopfzeile auf jeder Folgeseite wiederholt.')
-      .addToggle((t) => t.setValue(s.repeatTableHeader).onChange(async (v) => { s.repeatTableHeader = v; await save(); }));
-    new Setting(containerEl).setName('Bilder zusammenhalten').setDesc('Ein Bild wird nicht über eine Seitengrenze hinweg abgeschnitten.')
-      .addToggle((t) => t.setValue(s.keepImagesTogether).onChange(async (v) => { s.keepImagesTogether = v; await save(); }));
-    new Setting(containerEl).setName('Codeblöcke zusammenhalten').setDesc('Ein Codeblock, der auf eine Seite passt, wird nicht mittendrin umbrochen.')
-      .addToggle((t) => t.setValue(s.keepCodeTogether).onChange(async (v) => { s.keepCodeTogether = v; await save(); }));
-    new Setting(containerEl).setName('Überschriften-Waisenschutz (Zeilen)').setDesc('Mindestanzahl Folgezeilen, die mit einer Überschrift auf derselben Seite bleiben müssen. 0 = aus.')
-      .addText((t) => t.setValue(String(s.headingKeepWithLines))
+    new Setting(containerEl).setName(t('settings.pagebreak.name')).setDesc(t('settings.pagebreak.desc'))
+      .addText((txt) => txt.setValue(s.pageBreakMarker).onChange(async (v) => { s.pageBreakMarker = v; await save(); }));
+    new Setting(containerEl).setName(t('settings.keepTables.name')).setDesc(t('settings.keepTables.desc'))
+      .addToggle((tg) => tg.setValue(s.keepTablesTogether).onChange(async (v) => { s.keepTablesTogether = v; await save(); }));
+    new Setting(containerEl).setName(t('settings.repeatHeader.name')).setDesc(t('settings.repeatHeader.desc'))
+      .addToggle((tg) => tg.setValue(s.repeatTableHeader).onChange(async (v) => { s.repeatTableHeader = v; await save(); }));
+    new Setting(containerEl).setName(t('settings.keepImages.name')).setDesc(t('settings.keepImages.desc'))
+      .addToggle((tg) => tg.setValue(s.keepImagesTogether).onChange(async (v) => { s.keepImagesTogether = v; await save(); }));
+    new Setting(containerEl).setName(t('settings.keepCode.name')).setDesc(t('settings.keepCode.desc'))
+      .addToggle((tg) => tg.setValue(s.keepCodeTogether).onChange(async (v) => { s.keepCodeTogether = v; await save(); }));
+    new Setting(containerEl).setName(t('settings.orphan.name')).setDesc(t('settings.orphan.desc'))
+      .addText((txt) => txt.setValue(String(s.headingKeepWithLines))
         .onChange(async (v) => { const n = Number(v); if (Number.isInteger(n) && n >= 0 && n <= 10) { s.headingKeepWithLines = n; await save(); } }));
   }
 }

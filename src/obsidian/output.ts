@@ -1,6 +1,7 @@
 // src/obsidian/output.ts
 import { App, Notice } from 'obsidian';
 import type { OutputMode } from './settings';
+import { t } from '../vendor/kit/i18n';
 
 // Runtime-only API surfaces not covered by the standard/Obsidian typings.
 interface ShareCapableNavigator {
@@ -63,6 +64,6 @@ export async function writePdf(
   if (dir && !(await adapter.exists(dir))) await adapter.mkdir(dir);
   await adapter.writeBinary(path, bytes.buffer as ArrayBuffer);
   if (ctx.openAfter && typeof appExt.openWithDefaultApp === 'function') { try { await appExt.openWithDefaultApp(path); } catch { /* ignore */ } }
-  new Notice(`PDF gespeichert: ${path}`);
+  new Notice(t('notice.saved', path));
   return { savedPath: path };
 }

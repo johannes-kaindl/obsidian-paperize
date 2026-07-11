@@ -1,5 +1,5 @@
 // src/obsidian/main.ts
-import { Plugin, Notice, MarkdownRenderer, Component, TFile, normalizePath } from 'obsidian';
+import { Plugin, Notice, MarkdownRenderer, Component, TFile, normalizePath, getLanguage } from 'obsidian';
 import { DEFAULT_SETTINGS, PaperizeSettings, PaperizeSettingTab, settingsToOptions } from './settings';
 import { writePdf } from './output';
 import { stripFrontmatter, deriveTitle } from '../core/prepare';
@@ -7,6 +7,14 @@ import { buildMetadataEntries } from '../core/frontmatter';
 import { domToIrSync, resolveImages } from '../core/dom-to-ir';
 import { imageToJpeg } from '../core/image';
 import { renderPdf } from '../vendor/kit/pdf';
+import { pickLang, setLang, t } from '../vendor/kit/i18n';
+import { registerI18n } from '../i18n/strings';
+
+// Obsidian UI language via the native getLanguage() API (App 1.8.7+). Wrapped defensively
+// so a test/window-less context (getLanguage throwing) falls back to English, not a crash.
+function readObsidianLocale(): string | null {
+  try { return getLanguage(); } catch { return null; }
+}
 
 // Runtime-only Obsidian API surface not covered by the public typings.
 interface FileManagerExt {
@@ -28,9 +36,12 @@ export default class PaperizePlugin extends Plugin {
   settings: PaperizeSettings = { ...DEFAULT_SETTINGS };
 
   async onload() {
+    // Language must be resolved before any user-facing string is registered below.
+    registerI18n();
+    setLang(pickLang(readObsidianLocale()));
     await this.loadSettings();
-    this.addRibbonIcon('file-down', 'Paperize: als PDF exportieren', () => this.exportActive());
-    this.addCommand({ id: 'export-pdf', name: 'Aktive Notiz als PDF exportieren', callback: () => this.exportActive() });
+    this.addRibbonIcon('file-down', t('cmd.exportRibbon'), () => this.exportActive());
+    this.addCommand({ id: 'export-pdf', name: t('cmd.export'), callback: () => this.exportActive() });
     this.addSettingTab(new PaperizeSettingTab(this.app, this));
   }
 
@@ -42,12 +53,12 @@ export default class PaperizePlugin extends Plugin {
 
   private async exportActive(): Promise<void> {
     const file = this.app.workspace.getActiveFile();
-    if (!file || file.extension !== 'md') { new Notice('Keine aktive Markdown-Notiz.'); return; }
+    if (!file || file.extension !== 'md') { new Notice(t('notice.noActiveNote')); return; }
     try {
       await this.exportFile(file);
     } catch (e) {
       console.error('Paperize: export failed', e);
-      new Notice('PDF-Export fehlgeschlagen (siehe Konsole).');
+      new Notice(t('notice.exportFailed'));
     }
   }
 
@@ -56,7 +67,7 @@ export default class PaperizePlugin extends Plugin {
     // Always strip the raw YAML from the body (it would render as an ugly code block);
     // the frontmatter is re-surfaced as a clean metadata block below when enabled.
     const body = stripFrontmatter(raw);
-    if (!body.trim()) { new Notice('Nichts zu exportieren.'); return; }
+    if (!body.trim()) { new Notice(t('notice.nothingToExport')); return; }
     const title = deriveTitle(body, file.basename);
 
     // Render markdown → detached DOM via Obsidian's own parser.
@@ -96,7 +107,7 @@ export default class PaperizePlugin extends Plugin {
       openAfter: false,
     });
 
-    if (totalUnsupported > 0) new Notice(`PDF erstellt. ${totalUnsupported} Element(e) wurden vereinfacht dargestellt (z.B. Callouts, Mathe).`);
+    if (totalUnsupported > 0) new Notice(t('notice.simplified', totalUnsupported));
   }
 
   // Resolve the destination path Obsidian would use for an attachment named <base>.pdf.

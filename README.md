@@ -3,7 +3,7 @@
 > 🇬🇧 English · [🇩🇪 Deutsch](https://github.com/johannes-kaindl/obsidian-paperize/blob/main/README.de.md)
 
 An Obsidian plugin that exports the active note as a clean, text-selectable **vector PDF**
-— no letterhead, no branding, just the note. Works identically on desktop, iPhone and
+— just your note's content, nothing added. Works identically on desktop, iPhone and
 iPad.
 
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue.svg)](https://github.com/johannes-kaindl/obsidian-paperize/blob/main/LICENSE)
@@ -11,9 +11,11 @@ iPad.
 
 ## Features
 
-- **One command, one PDF:** run **Aktive Notiz als PDF exportieren** (command palette or
+- **One command, one PDF:** run **Export active note as PDF** (command palette or
   the ribbon icon) and the active note becomes a real, text-selectable vector PDF — no
   browser print dialog, no screenshot detour.
+- **Bilingual UI (English / German):** commands, settings, and notices follow your
+  Obsidian display language automatically — no separate setting.
 - **Standard Markdown scope:** headings, paragraphs, bold/italic/inline code, nested
   ordered and unordered lists, blockquotes, horizontal rules, links, images (re-encoded
   as JPEG), fenced code blocks, and simple tables.
@@ -61,7 +63,7 @@ Then: Obsidian → Settings → Community plugins → reload → enable **Paperi
 ## Usage
 
 1. Open any Markdown note.
-2. Run **Aktive Notiz als PDF exportieren** (command palette) or click the ribbon icon.
+2. Run **Export active note as PDF** (command palette) or click the ribbon icon.
 3. The PDF appears at the configured output location (see **Settings → Output
    destination** below). If any elements were simplified during export, a notice tells
    you how many.

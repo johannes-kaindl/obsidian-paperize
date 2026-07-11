@@ -3,7 +3,7 @@
 > [🇬🇧 English](https://github.com/johannes-kaindl/obsidian-paperize/blob/main/README.md) · 🇩🇪 Deutsch
 
 Ein Obsidian-Plugin, das die aktive Notiz als sauberes, textselektierbares **Vektor-PDF**
-exportiert — kein Briefkopf, keine Marke, nur die Notiz. Funktioniert identisch auf
+exportiert — nur der Inhalt deiner Notiz, sonst nichts. Funktioniert identisch auf
 Desktop, iPhone und iPad.
 
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue.svg)](https://github.com/johannes-kaindl/obsidian-paperize/blob/main/LICENSE)
@@ -14,6 +14,8 @@ Desktop, iPhone und iPad.
 - **Ein Befehl, ein PDF:** **Aktive Notiz als PDF exportieren** ausführen (Befehlspalette
   oder Ribbon-Icon) — die aktive Notiz wird zu einem echten, textselektierbaren
   Vektor-PDF. Kein Druckdialog des Browsers, kein Screenshot-Umweg.
+- **Zweisprachige Oberfläche (Deutsch / Englisch):** Befehle, Einstellungen und Hinweise
+  folgen automatisch der Anzeigesprache von Obsidian — keine separate Einstellung.
 - **Standard-Markdown-Umfang:** Überschriften, Absätze, Bold/Italic/Inline-Code,
   verschachtelte geordnete und ungeordnete Listen, Blockquotes, Trennlinien, Links,
   Bilder (zu JPEG re-encodiert), Codeblöcke und einfache Tabellen.
