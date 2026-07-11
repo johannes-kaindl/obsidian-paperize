@@ -12,13 +12,19 @@
     "gate": "npm run typecheck && npm test && npm run check:pure && npm run build",
     "deploy": "npm run build && cp main.js manifest.json styles.css \"${OBSIDIAN_PLUGIN_DIR:?set OBSIDIAN_PLUGIN_DIR}\"/"
   },
-  "keywords": ["obsidian", "pdf", "markdown", "export"],
+  "keywords": [
+    "obsidian",
+    "pdf",
+    "markdown",
+    "export"
+  ],
   "author": "Johannes Kaindl",
   "license": "AGPL-3.0-or-later",
   "devDependencies": {
     "@types/node": "^20",
     "builtin-modules": "^3.3.0",
     "esbuild": "^0.20.0",
+    "happy-dom": "^20.10.6",
     "obsidian": "latest",
     "typescript": "^5.4.0",
     "vitest": "^1.6.0"
