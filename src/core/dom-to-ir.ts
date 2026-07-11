@@ -53,10 +53,14 @@ function cellAlign(td: Element): Align | undefined {
   return undefined;
 }
 
-export function domToIrSync(root: HTMLElement): { blocks: Block[]; imageEls: HTMLImageElement[]; unsupportedCount: number } {
+export function domToIrSync(
+  root: HTMLElement,
+  opts?: { pageBreakMarker?: string },
+): { blocks: Block[]; imageEls: HTMLImageElement[]; unsupportedCount: number } {
   const blocks: Block[] = [];
   const imageEls: HTMLImageElement[] = [];
   let unsupportedCount = 0;
+  const marker = opts?.pageBreakMarker;
 
   const parseList = (listEl: Element): ListItem[] => {
     const items: ListItem[] = [];
@@ -105,6 +109,7 @@ export function domToIrSync(root: HTMLElement): { blocks: Block[]; imageEls: HTM
       const nm = nameOf(el);
       if (/^H[1-6]$/.test(nm)) blocks.push({ type: 'heading', level: Number(nm[1]) as 1, inlines: inlinesOf(el) });
       else if (nm === 'P') {
+        if (marker && (el.textContent || '').trim() === marker) { blocks.push({ type: 'pagebreak' }); continue; }
         const inl = inlinesOf(el);
         if (inl.length) blocks.push({ type: 'paragraph', inlines: inl });
         for (const img of Array.from(el.querySelectorAll('img'))) {
@@ -113,7 +118,7 @@ export function domToIrSync(root: HTMLElement): { blocks: Block[]; imageEls: HTM
         }
       }
       else if (nm === 'UL' || nm === 'OL') blocks.push({ type: 'list', ordered: nm === 'OL', items: parseList(el) });
-      else if (nm === 'BLOCKQUOTE') { const inner: Block[] = []; const sub = domToIrSync(el as HTMLElement); inner.push(...sub.blocks); imageEls.push(...sub.imageEls); unsupportedCount += sub.unsupportedCount; blocks.push({ type: 'blockquote', blocks: inner }); }
+      else if (nm === 'BLOCKQUOTE') { const inner: Block[] = []; const sub = domToIrSync(el as HTMLElement, opts); inner.push(...sub.blocks); imageEls.push(...sub.imageEls); unsupportedCount += sub.unsupportedCount; blocks.push({ type: 'blockquote', blocks: inner }); }
       else if (nm === 'PRE') { const code = el.querySelector('code'); const langCls = code ? (code.getAttribute('class') || '') : ''; const lm = /language-(\S+)/.exec(langCls); blocks.push({ type: 'code', lang: lm ? lm[1] : undefined, text: (el.textContent || '') }); }
       else if (nm === 'TABLE') blocks.push(parseTable(el));
       else if (nm === 'IMG') { blocks.push({ type: 'image', data: EMPTY, wPx: 0, hPx: 0, alt: (el as HTMLImageElement).getAttribute('alt') || undefined }); imageEls.push(el as HTMLImageElement); }

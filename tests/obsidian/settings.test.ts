@@ -17,4 +17,14 @@ describe('settingsToOptions', () => {
     const on = settingsToOptions({ ...DEFAULT_SETTINGS, runningHeaderFooter: true }, 'Doc', '2026-07-11');
     expect(on.frame.runningHeaderFooter).toMatchObject({ position: 'footer', left: 'Doc', right: '2026-07-11' });
   });
+  it('maps pagination settings with the engine defaults', () => {
+    const o = settingsToOptions(DEFAULT_SETTINGS, 'T');
+    expect(o.pagination).toEqual({
+      keepTablesTogether: true,
+      repeatTableHeader: true,
+      keepImagesTogether: true,
+      keepCodeTogether: true,
+      headingKeepWithLines: 2,
+    });
+  });
 });

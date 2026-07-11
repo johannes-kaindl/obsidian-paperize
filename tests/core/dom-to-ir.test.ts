@@ -76,6 +76,14 @@ describe('domToIrSync', () => {
     expect(imageBlock).toBeDefined();
     expect(imageEls.length).toBe(1);
   });
+  it('maps a \\pagebreak marker paragraph to a pagebreak block', () => {
+    const { blocks } = domToIrSync(dom('<p>\\pagebreak</p>'), { pageBreakMarker: '\\pagebreak' });
+    expect(blocks[0]).toEqual({ type: 'pagebreak' });
+  });
+  it('leaves the marker as normal text when the feature is off (no marker)', () => {
+    const { blocks } = domToIrSync(dom('<p>\\pagebreak</p>'));
+    expect(blocks[0].type).toBe('paragraph');
+  });
 });
 
 describe('resolveImages', () => {

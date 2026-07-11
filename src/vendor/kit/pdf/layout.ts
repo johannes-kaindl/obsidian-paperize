@@ -53,6 +53,20 @@ export function layoutDocument(doc: Block[], options: LayoutOptions): LayoutResu
     const yy = y; y -= h; return yy;
   };
 
+  const PAG = options.pagination;
+
+  // Usable content height of a single page.
+  const pageContentHeight = topYFirst - bottomY;
+  // Would a block of height h fit at the current cursor position?
+  const fitsHere = (h: number): boolean => (y - h) >= bottomY;
+  // Force a page break: advance to the top of a fresh page.
+  const forceBreak = () => { page += 1; y = topYFirst - ASCENT * baseSize; };
+  // Break before the current block if it doesn't fit here but does fit on a fresh page
+  // (a block taller than a full page must split instead — leave it alone).
+  const breakBeforeIfNeeded = (h: number) => {
+    if (!fitsHere(h) && h <= pageContentHeight) forceBreak();
+  };
+
   // Resolve an inline run to a font key for the given base set.
   const runFont = (r: Inline): string => {
     if (r.code) return F.mono;
@@ -121,6 +135,17 @@ export function layoutDocument(doc: Block[], options: LayoutOptions): LayoutResu
     return out;
   };
 
+  // Total rendered height of a code block — mirrors the 'code' case's math exactly (no drift).
+  const measureCode = (text: string): number => {
+    const sz = baseSize - 1;
+    const padPt = mmToPt(2);
+    const innerWidth = contentWidthPt - 2 * padPt;
+    const rawLines = text.replace(/\n$/, '').split('\n');
+    let lineCount = 0;
+    for (const ln of rawLines) lineCount += wrapMono(ln, sz, innerWidth).length;
+    return baseSize * 0.2 + lineCount * sz * 1.35 + baseSize * 0.6;
+  };
+
   // Compute column widths: proportional to each column's longest cell text, capped to content width.
   const columnWidths = (header: { inlines: Inline[] }[], rows: { inlines: Inline[] }[][], sz: number): number[] => {
     const cols = header.length || (rows[0] ? rows[0].length : 0);
@@ -138,10 +163,31 @@ export function layoutDocument(doc: Block[], options: LayoutOptions): LayoutResu
     return natural.map((w) => (w / sum) * contentWidthPt);
   };
 
-  const renderBlock = (b: Block) => {
+  // Height of the first n wrapped lines of a block — a lookahead heuristic used to decide
+  // whether a heading would be orphaned at the bottom of a page. For text-bearing blocks
+  // (paragraph/heading) this wraps exactly like the renderer does; other block types use a
+  // simple `n * baseSize*lineH` proxy since splitting them mid-block is a separate concern.
+  const measureFirstLines = (b: Block, n: number): number => {
+    if (n <= 0) return 0;
+    if (b.type === 'paragraph' || b.type === 'heading') {
+      const sz = b.type === 'heading' ? baseSize * (HEADING_MUL[b.level] || 1) * hScale : baseSize;
+      const runs: WrapRun[] = (b.inlines.length ? b.inlines : [{ text: '' }]).map((r) => ({ text: r.text, fontKey: runFont(r) }));
+      const lines = wrapRuns(runs, contentWidthPt, sz);
+      return Math.min(n, lines.length) * sz * lineH;
+    }
+    return n * baseSize * lineH;
+  };
+
+  const renderBlock = (b: Block, next?: Block) => {
     switch (b.type) {
       case 'heading': {
         const sz = baseSize * (HEADING_MUL[b.level] || 1) * hScale;
+        const runs: WrapRun[] = (b.inlines.length ? b.inlines : [{ text: '' }]).map((r) => ({ text: r.text, fontKey: F.bold }));
+        const headingLines = wrapRuns(runs, contentWidthPt, sz).length;
+        const headH = sz * 0.55 + headingLines * sz * lineH;
+        if (PAG.headingKeepWithLines > 0 && next) {
+          breakBeforeIfNeeded(headH + measureFirstLines(next, PAG.headingKeepWithLines));
+        }
         y -= sz * 0.55; // space above heading scales with its size (groups toward following content)
         emitInlines(b.inlines, sz, () => F.bold, TEXT, baseSize * 0.28, 0);
         break;
@@ -170,6 +216,7 @@ export function layoutDocument(doc: Block[], options: LayoutOptions): LayoutResu
         break;
       }
       case 'code': {
+        if (PAG.keepCodeTogether) breakBeforeIfNeeded(measureCode(b.text));
         const sz = baseSize - 1;
         const padPt = mmToPt(2);
         const innerWidth = contentWidthPt - 2 * padPt;
@@ -191,6 +238,22 @@ export function layoutDocument(doc: Block[], options: LayoutOptions): LayoutResu
         const sz = baseSize - 1;
         const cols = columnWidths(b.header, b.rows, sz);
         const padPt = mmToPt(1.5);
+        // Height a row would occupy — single source of truth shared by drawRow (render) and
+        // measureTable (keep-together pre-check), so the two can never drift apart.
+        const rowHeight = (cells: { inlines: Inline[]; align?: 'left' | 'center' | 'right' }[], headerRow: boolean): number => {
+          const wrapped = cols.map((cw, c) => {
+            const cell = cells[c] || { inlines: [] };
+            const runs: WrapRun[] = (cell.inlines.length ? cell.inlines : [{ text: '' }]).map((r) => ({ text: r.text, fontKey: headerRow ? F.bold : runFont(r) }));
+            return wrapRuns(runs, cw - 2 * padPt, sz);
+          });
+          const maxLines = Math.max(1, ...wrapped.map((w) => w.length));
+          return maxLines * sz * lineH + 2 * padPt;
+        };
+        const measureTable = (): number => {
+          let h = b.header.length ? rowHeight(b.header, true) : 0;
+          for (const r of b.rows) h += rowHeight(r, false);
+          return h;
+        };
         const drawRow = (cells: { inlines: Inline[]; align?: 'left' | 'center' | 'right' }[], headerRow: boolean) => {
           // Wrap each cell, find the tallest, reserve that height, then paint cells + borders.
           const wrapped = cols.map((cw, c) => {
@@ -198,8 +261,7 @@ export function layoutDocument(doc: Block[], options: LayoutOptions): LayoutResu
             const runs: WrapRun[] = (cell.inlines.length ? cell.inlines : [{ text: '' }]).map((r) => ({ text: r.text, fontKey: headerRow ? F.bold : runFont(r) }));
             return wrapRuns(runs, cw - 2 * padPt, sz);
           });
-          const maxLines = Math.max(1, ...wrapped.map((w) => w.length));
-          const rowH = maxLines * sz * lineH + 2 * padPt;
+          const rowH = rowHeight(cells, headerRow);
           const yTop = advance(rowH); // baseline slot for first line region
           const rowTopY = yTop + ASCENT * sz + padPt;
           const rowBotY = rowTopY - rowH;
@@ -222,8 +284,20 @@ export function layoutDocument(doc: Block[], options: LayoutOptions): LayoutResu
           ops.push({ page, kind: 'line', x1: leftPt, y1: rowBotY, x2: x, y2: rowBotY, wPt: 0.4, rgb: TBORDER });
         };
         y -= baseSize * 0.2;
+        if (PAG.keepTablesTogether) {
+          const totalH = measureTable();
+          if (totalH <= pageContentHeight) breakBeforeIfNeeded(totalH);
+        }
         if (b.header.length) drawRow(b.header, true);
-        for (const r of b.rows) drawRow(r, false);
+        for (const r of b.rows) {
+          // Decide the page-break explicitly and deterministically — do NOT rely on drawRow's
+          // own implicit `advance` break, which would skip the header-repeat step below.
+          if (!fitsHere(rowHeight(r, false))) {
+            forceBreak();
+            if (PAG.repeatTableHeader && b.header.length) drawRow(b.header, true);
+          }
+          drawRow(r, false);
+        }
         y -= baseSize * 0.6;
         break;
       }
@@ -261,12 +335,16 @@ export function layoutDocument(doc: Block[], options: LayoutOptions): LayoutResu
         let hPt = wPt * ratio;
         const maxH = (topYFirst - bottomY) * 0.9;
         if (hPt > maxH) { hPt = maxH; wPt = hPt / ratio; }
+        if (PAG.keepImagesTogether) breakBeforeIfNeeded(hPt + baseSize * 0.6);
         // Reserve the image height (page-break if needed) and place from the top of the slot.
         const yTop = advance(hPt + baseSize * 0.6);
         const imgBottom = yTop + ASCENT * baseSize - hPt;
         ops.push({ page, kind: 'image', data: b.data, wPx: b.wPx, hPx: b.hPx, x: leftPt, y: imgBottom, w: wPt, h: hPt });
         break;
       }
+      case 'pagebreak':
+        forceBreak();
+        break;
       default:
         break; // other block types added in later tasks
     }
@@ -277,7 +355,7 @@ export function layoutDocument(doc: Block[], options: LayoutOptions): LayoutResu
     emitInlines([{ text: options.frame.title }], sz, () => F.bold, TEXT, baseSize * 0.7, 0);
   }
 
-  for (const b of doc) renderBlock(b);
+  for (let i = 0; i < doc.length; i++) renderBlock(doc[i], doc[i + 1]);
 
   // Page numbers (footer, centred) — drawn after content so pageCount is known.
   if (options.frame.pageNumbers) {

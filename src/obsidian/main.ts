@@ -58,7 +58,7 @@ export default class PaperizePlugin extends Plugin {
     let resolved: Awaited<ReturnType<typeof resolveImages>>;
     try {
       await MarkdownRenderer.render(this.app, body, holder, file.path, comp);
-      const extracted = domToIrSync(holder);
+      const extracted = domToIrSync(holder, { pageBreakMarker: this.settings.pageBreakMarker });
       unsupportedCount = extracted.unsupportedCount;
       resolved = await resolveImages(extracted.blocks, extracted.imageEls, (src) => this.decodeImage(src, file));
     } finally {
