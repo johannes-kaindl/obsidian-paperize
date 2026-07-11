@@ -2,7 +2,7 @@ import { defineConfig } from 'vitest/config';
 import path from 'path';
 
 export default defineConfig({
-  test: { environment: 'node', include: ['tests/**/*.test.ts'] },
+  test: { environment: 'node', include: ['tests/**/*.test.ts', 'scripts/**/*.test.ts'] },
   resolve: {
     alias: {
       // The real 'obsidian' package has no JS entrypoint (types only), which

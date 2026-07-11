@@ -10,7 +10,9 @@
     "test": "vitest run --passWithNoTests",
     "check:pure": "sh -c \"! grep -rl \\\"from 'obsidian'\\\" src/core src/vendor 2>/dev/null\"",
     "gate": "npm run typecheck && npm test && npm run check:pure && npm run build",
-    "deploy": "npm run build && cp main.js manifest.json styles.css \"${OBSIDIAN_PLUGIN_DIR:?set OBSIDIAN_PLUGIN_DIR}\"/"
+    "deploy": "npm run build && cp main.js manifest.json styles.css \"${OBSIDIAN_PLUGIN_DIR:?set OBSIDIAN_PLUGIN_DIR}\"/",
+    "version-bump": "node scripts/version-bump.mjs",
+    "release": "node scripts/release.mjs"
   },
   "keywords": [
     "obsidian",
@@ -20,6 +22,14 @@
   ],
   "author": "Johannes Kaindl",
   "license": "AGPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "git+https://codeberg.org/jkaindl/obsidian-paperize.git"
+  },
+  "homepage": "https://codeberg.org/jkaindl/obsidian-paperize",
+  "bugs": {
+    "url": "https://codeberg.org/jkaindl/obsidian-paperize/issues"
+  },
   "devDependencies": {
     "@types/node": "^20",
     "builtin-modules": "^3.3.0",
