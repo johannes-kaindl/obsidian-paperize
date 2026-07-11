@@ -78,7 +78,7 @@ erste Überschrift (oder der Dateiname, falls keine vorhanden ist) wird zum Tite
 | **Schriftfamilie** | Basis-Schriftart — Sans (Helvetica), Serif (Times) oder Mono (Courier). Nur Adobe-Core-14-Standardschriften, siehe [Schriften](#schriften--die-core-14-grenze) unten. | Sans |
 | **Schriftgröße (pt)** | Basis-Textgröße, 6–24 pt. | 11 pt |
 | **Seitenmaß** | A4 oder Letter. | A4 |
-| **Ränder (mm)** | Seitenrand auf allen vier Seiten, 5–50 mm. | 20 mm |
+| **Ränder (mm)** | Seitenrand auf allen vier Seiten, 12–50 mm. | 20 mm |
 | **Frontmatter entfernen** | Entfernt das YAML-Frontmatter aus dem exportierten Inhalt. | An |
 | **Titel oben** | Zeigt einen abgeleiteten Titel (erste Überschrift oder Dateiname) oben im PDF. | An |
 | **Seitenzahlen** | Druckt eine Seitenzahl auf jede Seite. | An |

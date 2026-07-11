@@ -76,7 +76,7 @@ heading (or the note's filename, if there is none) becomes the title.
 | **Font family** | Body typeface — Sans (Helvetica), Serif (Times), or Mono (Courier). Adobe Core-14 standard fonts only, see [Fonts](#fonts--the-core-14-limitation) below. | Sans |
 | **Font size (pt)** | Base body text size, 6–24 pt. | 11 pt |
 | **Page size** | A4 or Letter. | A4 |
-| **Margins (mm)** | Page margin on all four sides, 5–50 mm. | 20 mm |
+| **Margins (mm)** | Page margin on all four sides, 12–50 mm. | 20 mm |
 | **Strip frontmatter** | Remove YAML frontmatter from the exported body. | On |
 | **Title on top** | Show a derived title (first heading, or filename) at the top of the PDF. | On |
 | **Page numbers** | Print a page number on every page. | On |

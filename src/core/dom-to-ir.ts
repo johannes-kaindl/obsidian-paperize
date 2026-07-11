@@ -68,6 +68,7 @@ export function domToIrSync(root: HTMLElement): { blocks: Block[]; imageEls: HTM
         const nm = nameOf(sub);
         if (nm === 'UL' || nm === 'OL') childBlocks.push({ type: 'list', ordered: nm === 'OL', items: parseList(sub) });
       }
+      if ((li as Element).querySelector('img')) unsupportedCount++;
       items.push({ inlines: inlinesOf(li as Element), children: childBlocks.length ? childBlocks : undefined });
     }
     return items;
@@ -80,11 +81,17 @@ export function domToIrSync(root: HTMLElement): { blocks: Block[]; imageEls: HTM
     const tbody = tableEl.querySelector('tbody') || tableEl;
     if (thead) {
       const tr = thead.querySelector('tr');
-      if (tr) header = Array.from(tr.children).map((td) => ({ inlines: inlinesOf(td as Element), align: cellAlign(td as Element) }));
+      if (tr) header = Array.from(tr.children).map((td) => {
+        if ((td as Element).querySelector('img')) unsupportedCount++;
+        return { inlines: inlinesOf(td as Element), align: cellAlign(td as Element) };
+      });
     }
     for (const tr of Array.from(tbody.querySelectorAll('tr'))) {
       if (thead && tr.parentElement && tr.parentElement.nodeName.toUpperCase() === 'THEAD') continue;
-      const cells = Array.from(tr.children).map((td) => ({ inlines: inlinesOf(td as Element), align: cellAlign(td as Element) }));
+      const cells = Array.from(tr.children).map((td) => {
+        if ((td as Element).querySelector('img')) unsupportedCount++;
+        return { inlines: inlinesOf(td as Element), align: cellAlign(td as Element) };
+      });
       if (cells.length) rows.push(cells);
     }
     return { type: 'table', header, rows };

@@ -1,7 +1,7 @@
 // src/core/prepare.ts
 // Remove a leading YAML frontmatter block (--- ... ---).
 export function stripFrontmatter(md: string): string {
-  const m = /^﻿?---\r?\n[\s\S]*?\r?\n---\r?\n?/.exec(md);
+  const m = /^﻿?---\r?\n(?:[\s\S]*?\r?\n)?---\r?\n?/.exec(md);
   return m ? md.slice(m[0].length) : md;
 }
 

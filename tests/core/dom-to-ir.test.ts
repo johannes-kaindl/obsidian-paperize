@@ -57,6 +57,16 @@ describe('domToIrSync', () => {
     expect(blocks[0].type).toBe('image');
     expect(imageEls.length).toBe(1);
   });
+  it('bumps unsupportedCount for an image inside a list item', () => {
+    const { blocks, unsupportedCount } = domToIrSync(dom('<ul><li>top<img src="x.png"></li></ul>'));
+    expect(blocks[0].type).toBe('list');
+    expect(unsupportedCount).toBe(1);
+  });
+  it('bumps unsupportedCount for an image inside a table cell', () => {
+    const { blocks, unsupportedCount } = domToIrSync(dom('<table><tbody><tr><td><img src="x.png"></td></tr></tbody></table>'));
+    expect(blocks[0].type).toBe('table');
+    expect(unsupportedCount).toBe(1);
+  });
   it('keeps an inline image alongside surrounding paragraph text', () => {
     const { blocks, imageEls } = domToIrSync(dom('<p>Siehe <img src="fig.png" alt="Fig"> unten</p>'));
     const para = blocks.find((b: any) => b.type === 'paragraph') as any;

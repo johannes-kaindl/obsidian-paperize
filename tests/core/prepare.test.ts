@@ -9,6 +9,9 @@ describe('stripFrontmatter', () => {
   it('leaves body without frontmatter untouched', () => {
     expect(stripFrontmatter('# Titel\ntext')).toBe('# Titel\ntext');
   });
+  it('strips an empty frontmatter block', () => {
+    expect(stripFrontmatter('---\n---\nHallo')).toBe('Hallo');
+  });
 });
 
 describe('deriveTitle', () => {

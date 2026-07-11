@@ -25,7 +25,7 @@ Initial release.
   custom folder, or share/open out of the vault (mobile share sheet / system default app).
 - **Settings**: font family (Sans/Serif/Mono — Adobe Core-14 standard fonts only, no
   embedding), base font size, page size (A4/Letter), margins, frontmatter stripping,
-  title display, page numbers, running header/footer, image max-width, and output mode.
+  title display, page numbers, running header/footer, and output mode.
 - **Cross-platform**: produces real vector PDF bytes identically on desktop and
   iPhone/iPad (`isDesktopOnly: false`).
 - **Dependency-free at runtime**: no external PDF library, no network calls, no

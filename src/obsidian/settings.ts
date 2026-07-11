@@ -1,5 +1,6 @@
 // src/obsidian/settings.ts
 import { App, PluginSettingTab, Setting } from 'obsidian';
+import { DEFAULT_OPTIONS } from '../vendor/kit/pdf';
 import type { LayoutOptions, FontChoice } from '../vendor/kit/pdf';
 
 export type OutputMode = 'nextToNote' | 'attachmentFolder' | 'customFolder' | 'share';
@@ -38,8 +39,8 @@ export const DEFAULT_SETTINGS: PaperizeSettings = {
 export function settingsToOptions(s: PaperizeSettings, title: string | null, dateStr?: string): LayoutOptions {
   return {
     page: { size: s.pageSize, marginMm: { top: s.marginMm, right: s.marginMm, bottom: s.marginMm, left: s.marginMm } },
-    fonts: { body: s.fontChoice, baseSizePt: s.baseSizePt, lineHeight: s.lineHeight, headingScale: 1.15 },
-    colors: { text: '#1a1a1a', muted: '#666666', rule: '#cccccc', codeBg: '#f4f4f4', tableBorder: '#cccccc' },
+    fonts: { body: s.fontChoice, baseSizePt: s.baseSizePt, lineHeight: s.lineHeight, headingScale: DEFAULT_OPTIONS.fonts.headingScale },
+    colors: { ...DEFAULT_OPTIONS.colors },
     frame: {
       title: s.showTitle ? title : null,
       pageNumbers: s.pageNumbers,
@@ -66,8 +67,11 @@ export class PaperizeSettingTab extends PluginSettingTab {
       .onChange(async (v) => { const n = Number(v); if (n >= 6 && n <= 24) { s.baseSizePt = n; await save(); } }));
     new Setting(containerEl).setName('Seitenmaß').addDropdown((d) => d.addOptions({ A4: 'A4', Letter: 'Letter' })
       .setValue(s.pageSize).onChange(async (v) => { s.pageSize = v as 'A4' | 'Letter'; await save(); }));
+    // Lower bound is 12mm, not the engine's theoretical minimum: below ~11mm bottom margin the
+    // fixed-offset footer/page-number draws fall off the page. Proper fix is an engine-side
+    // clamp upstream in the kit (src/vendor/kit/pdf/*); this is a plugin-side guard rail.
     new Setting(containerEl).setName('Ränder (mm)').addText((t) => t.setValue(String(s.marginMm))
-      .onChange(async (v) => { const n = Number(v); if (n >= 5 && n <= 50) { s.marginMm = n; await save(); } }));
+      .onChange(async (v) => { const n = Number(v); if (n >= 12 && n <= 50) { s.marginMm = n; await save(); } }));
     new Setting(containerEl).setName('Frontmatter entfernen').addToggle((t) => t.setValue(s.stripFrontmatter)
       .onChange(async (v) => { s.stripFrontmatter = v; await save(); }));
     new Setting(containerEl).setName('Titel oben').addToggle((t) => t.setValue(s.showTitle)
