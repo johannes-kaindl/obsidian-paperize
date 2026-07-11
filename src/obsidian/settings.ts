@@ -11,7 +11,7 @@ export interface PaperizeSettings {
   lineHeight: number;
   pageSize: 'A4' | 'Letter';
   marginMm: number;
-  stripFrontmatter: boolean;
+  showFrontmatter: boolean;
   showTitle: boolean;
   pageNumbers: boolean;
   runningHeaderFooter: boolean;
@@ -22,11 +22,11 @@ export interface PaperizeSettings {
 
 export const DEFAULT_SETTINGS: PaperizeSettings = {
   fontChoice: 'sans',
-  baseSizePt: 11,
-  lineHeight: 1.4,
+  baseSizePt: 10.5,
+  lineHeight: 1.45,
   pageSize: 'A4',
   marginMm: 20,
-  stripFrontmatter: true,
+  showFrontmatter: true,
   showTitle: true,
   pageNumbers: true,
   runningHeaderFooter: false,
@@ -72,8 +72,10 @@ export class PaperizeSettingTab extends PluginSettingTab {
     // clamp upstream in the kit (src/vendor/kit/pdf/*); this is a plugin-side guard rail.
     new Setting(containerEl).setName('Ränder (mm)').addText((t) => t.setValue(String(s.marginMm))
       .onChange(async (v) => { const n = Number(v); if (n >= 12 && n <= 50) { s.marginMm = n; await save(); } }));
-    new Setting(containerEl).setName('Frontmatter entfernen').addToggle((t) => t.setValue(s.stripFrontmatter)
-      .onChange(async (v) => { s.stripFrontmatter = v; await save(); }));
+    new Setting(containerEl).setName('Frontmatter als Metadaten-Block zeigen')
+      .setDesc('Frontmatter erscheint als dezente Metadaten-Liste oben (statt als roher YAML-Block). Aus = ganz weglassen.')
+      .addToggle((t) => t.setValue(s.showFrontmatter)
+        .onChange(async (v) => { s.showFrontmatter = v; await save(); }));
     new Setting(containerEl).setName('Titel oben').addToggle((t) => t.setValue(s.showTitle)
       .onChange(async (v) => { s.showTitle = v; await save(); }));
     new Setting(containerEl).setName('Seitenzahlen').addToggle((t) => t.setValue(s.pageNumbers)

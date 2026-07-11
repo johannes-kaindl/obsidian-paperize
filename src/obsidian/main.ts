@@ -3,6 +3,7 @@ import { Plugin, Notice, MarkdownRenderer, Component, TFile, normalizePath } fro
 import { DEFAULT_SETTINGS, PaperizeSettings, PaperizeSettingTab, settingsToOptions } from './settings';
 import { writePdf } from './output';
 import { stripFrontmatter, deriveTitle } from '../core/prepare';
+import { buildMetadataEntries } from '../core/frontmatter';
 import { domToIrSync, resolveImages } from '../core/dom-to-ir';
 import { imageToJpeg } from '../core/image';
 import { renderPdf } from '../vendor/kit/pdf';
@@ -44,7 +45,9 @@ export default class PaperizePlugin extends Plugin {
 
   private async exportFile(file: TFile): Promise<void> {
     const raw = await this.app.vault.read(file);
-    const body = this.settings.stripFrontmatter ? stripFrontmatter(raw) : raw;
+    // Always strip the raw YAML from the body (it would render as an ugly code block);
+    // the frontmatter is re-surfaced as a clean metadata block below when enabled.
+    const body = stripFrontmatter(raw);
     if (!body.trim()) { new Notice('Nichts zu exportieren.'); return; }
     const title = deriveTitle(body, file.basename);
 
@@ -65,7 +68,15 @@ export default class PaperizePlugin extends Plugin {
     const totalUnsupported = unsupportedCount + resolved.unsupportedAdded;
     const dateStr = todayStr();
     const options = settingsToOptions(this.settings, title, dateStr);
-    const bytes = renderPdf(resolved.blocks, options);
+
+    // Re-surface frontmatter as a clean metadata block at the top (after the title).
+    const blocks = resolved.blocks;
+    if (this.settings.showFrontmatter) {
+      const fm = this.app.metadataCache.getFileCache(file)?.frontmatter as Record<string, unknown> | undefined;
+      const entries = buildMetadataEntries(fm);
+      if (entries.length) blocks.unshift({ type: 'metadata', entries });
+    }
+    const bytes = renderPdf(blocks, options);
 
     const attachmentPath = this.settings.outputMode === 'attachmentFolder' ? await this.attachmentPathFor(file) : '';
     const noteDir = file.parent ? file.parent.path : '';

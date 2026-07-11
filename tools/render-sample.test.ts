@@ -55,7 +55,14 @@ describe('render-sample (headless E2E)', () => {
     const { blocks, imageEls, unsupportedCount } = domToIrSync(holder);
     const resolved = await resolveImages(blocks, imageEls, async () => ({ data: jpegBytes(), wPx: 1, hPx: 1 }));
 
-    const options = { ...DEFAULT_OPTIONS, frame: { ...DEFAULT_OPTIONS.frame, title: 'Paperize Beispiel', pageNumbers: true } };
+    const options = { ...DEFAULT_OPTIONS, frame: { ...DEFAULT_OPTIONS.frame, title: '🚦 Paperize Beispiel', pageNumbers: true } };
+    // Simulate main.ts prepending a frontmatter metadata block after the title.
+    resolved.blocks.unshift({ type: 'metadata', entries: [
+      { key: 'type', value: 'Cockpit' },
+      { key: 'status', value: 'Evergreen' },
+      { key: 'updated', value: '2026-07-08' },
+      { key: 'tags', value: 'cockpit, was-jetzt' },
+    ] });
     const bytes = renderPdf(resolved.blocks, options);
 
     writeFileSync(`${process.cwd()}/tools/sample-output.pdf`, bytes);
