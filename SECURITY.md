@@ -1,6 +1,6 @@
 # Security Policy
 
-> 🇬🇧 English · [🇩🇪 Deutsch](SECURITY.de.md)
+> 🇬🇧 English · [🇩🇪 Deutsch](https://github.com/jkaindl/obsidian-paperize/blob/main/SECURITY.de.md)
 
 ## Supported versions
 The most recently published version receives security updates.

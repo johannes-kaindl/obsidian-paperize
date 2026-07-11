@@ -4,7 +4,7 @@
 // (release.mjs) liest Token/Assets und reicht sie herein.
 //
 //   createCodebergRelease({ fetch, token, repo, tag, notes, assets }) → { id, htmlUrl }
-//   repo   = "owner/name" (z.B. "jkaindl/image-to-markdown")
+//   repo   = "owner/name" (z.B. "jkaindl/obsidian-paperize")
 //   assets = [{ name, body }]   body = Uint8Array/Buffer des Datei-Inhalts
 
 const API = "https://codeberg.org/api/v1";
