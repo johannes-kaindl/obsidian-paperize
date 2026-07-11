@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.1] — 2026-07-11
+
 ### Fixed
 
 - Image rasterization now uses `activeDocument` instead of `document`, so canvas
