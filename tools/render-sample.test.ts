@@ -23,7 +23,8 @@ function jpegBytes(): Uint8Array {
 
 // Representative HTML as Obsidian's MarkdownRenderer would emit for tools/sample.md.
 const HTML = `
-<h1>Paperize — Funktionsüberblick</h1>
+<h1>🚦 Cockpit — Funktionsüberblick</h1>
+<p>Emoji-Test: 📅 Heute · ✅ Aufgaben · 🗂️ Projekte — Tasks ≥14 Tage → abschließen, WIP ≤2.</p>
 <p>Ein Absatz mit <strong>fettem</strong>, <em>kursivem</em> und <code>inline-code</code> Text sowie einem <a href="https://example.com">Link zu example.com</a>. Dieser Absatz ist bewusst etwas länger, damit der Zeilenumbruch der PDF-Engine sichtbar wird und mehrere Zeilen entstehen.</p>
 <h2>Aufzählungen</h2>
 <ul><li>Erster Punkt</li><li>Zweiter Punkt mit Unterpunkten<ul><li>Unterpunkt A</li><li>Unterpunkt B</li></ul></li><li>Dritter Punkt</li></ul>
