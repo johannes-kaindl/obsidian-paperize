@@ -37,8 +37,19 @@ Abbruch. Desktop **und** iOS/iPad (`isDesktopOnly: false`) erzeugen echte Vektor
   einfache Tabellen. Alles außerhalb (Callouts, Mathe, Embeds, …) wird vereinfacht
   dargestellt statt den Export scheitern zu lassen.
 - Reine Funktionen (`src/core/*`, `src/vendor/kit/*`) sind frei von Obsidian-Imports und
-  damit in Node/vitest testbar; `npm run check:pure` erzwingt das (`grep` gegen
-  `from 'obsidian'`).
+  damit in Node/vitest testbar; `npm run check:pure` erzwingt das.
+- **Vendor-Schichtung:** Das Kit hat zwei Schichten (`src/pure` und `src/obsidian`); der Vendor
+  spiegelt sie. Obsidian-gekoppelte Kit-Module liegen unter `src/vendor/kit/obsidian/` (derzeit
+  `collapsible.ts`, importiert `setIcon`) und sind von `check:pure` ausgenommen
+  (`--exclude-dir=obsidian`); alles übrige im Vendor (`i18n`, `pdf`, `settings`) ist pure und
+  bleibt geprüft. Die Grenze verläuft bei **„pure", nicht bei „vendored"**: Ein neues
+  gekoppeltes Kit-Modul gehört in diesen Ordner, nicht in eine weitere Skript-Ausnahme.
+- **`check:pure`-Gotcha (2026-07-16):** Das Muster war `from 'obsidian'` — nur **einfache**
+  Anführungszeichen. Das Kit schreibt `from "obsidian"` (doppelte), Paperize einfache; das Gate
+  war damit **blind für genau den Fremdcode, den es prüfen soll**. Das Muster lautet jetzt
+  `from .obsidian.` und fängt beide Stile. Wer es anfasst: gegen einen echten Verstoß in beiden
+  Quote-Stilen verifizieren, nicht nur den Grün-Lauf ansehen — ein Gate, das nie rot wird, ist
+  kein Gate.
 - **Core-14-Schriften only:** Der Font-Layer nutzt ausschließlich die Adobe-Core-14-
   Standardschriften (Helvetica/Times/Courier-Familien) — keine eingebetteten Schriften,
   keine Custom-Fonts. Hält die PDFs klein und dependency-frei; bewusste Grenze, nicht
