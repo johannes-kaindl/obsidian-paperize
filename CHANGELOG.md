@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-07-16
+
 ### Added
 
 - **Filename scheme** — the exported PDF no longer has to be named after the note. The
