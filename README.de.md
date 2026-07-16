@@ -75,22 +75,49 @@ erste Überschrift (oder der Dateiname, falls keine vorhanden ist) wird zum Tite
 
 ## Einstellungen
 
-| Einstellung | Beschreibung | Standard |
-| --- | --- | --- |
-| **Schriftfamilie** | Basis-Schriftart — Sans (Helvetica), Serif (Times) oder Mono (Courier). Nur Adobe-Core-14-Standardschriften, siehe [Schriften](#schriften--die-core-14-grenze) unten. | Sans |
-| **Schriftgröße (pt)** | Basis-Textgröße, 6–24 pt. | 11 pt |
-| **Seitenmaß** | A4 oder Letter. | A4 |
-| **Ränder (mm)** | Seitenrand auf allen vier Seiten, 12–50 mm. | 20 mm |
-| **Frontmatter entfernen** | Entfernt das YAML-Frontmatter aus dem exportierten Inhalt. | An |
-| **Titel oben** | Zeigt einen abgeleiteten Titel (erste Überschrift oder Dateiname) oben im PDF. | An |
-| **Seitenzahlen** | Druckt eine Seitenzahl auf jede Seite. | An |
-| **Laufende Fußzeile** | Wiederholt Titel und heutiges Datum in der Fußzeile jeder Seite. | Aus |
-| **Ausgabeziel** | Wohin das PDF geschrieben wird: *neben der Notiz*, *Obsidian-Anhangordner*, *eigener Ordner* oder *Teilen/Öffnen außerhalb des Vaults*. | Neben der Notiz |
-| **Eigener Ausgabe-Ordner** | Vault-relativer Ordner, nur bei Ausgabeziel *eigener Ordner* verwendet. | *(leer)* |
+Der Einstellungen-Tab ist in fünf einklappbare Sektionen gegliedert. **Ausgabe** startet
+aufgeklappt — dort stehen Ausgabeziel und Dateiname-Schema; die übrigen merken sich, ob du
+sie offen gelassen hast.
 
-Die Bildbreite ist intern begrenzt (`imageMaxWidthPct`, Standard 100 % der
-Inhaltsbreite), aber noch nicht als eigener Regler im Einstellungen-Tab verfügbar —
-das steht auf der Roadmap.
+| Sektion | Einstellung | Beschreibung | Standard |
+| --- | --- | --- | --- |
+| Ausgabe | **Ausgabeziel** | Wohin das PDF geschrieben wird: *neben der Notiz*, *Obsidian-Anhangordner*, *eigener Ordner* oder *Teilen/Öffnen außerhalb des Vaults*. | Neben der Notiz |
+| Ausgabe | **Eigener Ausgabe-Ordner** | Vault-relativer Ordner. Nur sichtbar, wenn das Ausgabeziel *eigener Ordner* ist. | *(leer)* |
+| Ausgabe | **Dateiname-Schema** | Siehe [unten](#dateiname-schema). | `{title}` |
+| Seite | **Seitenmaß** | A4 oder Letter. | A4 |
+| Seite | **Ränder (mm)** | Seitenrand auf allen vier Seiten, 12–50 mm. | 20 mm |
+| Typografie | **Schriftfamilie** | Basis-Schriftart — Sans (Helvetica), Serif (Times) oder Mono (Courier). Nur Adobe-Core-14-Standardschriften, siehe [Schriften](#schriften--die-core-14-grenze) unten. | Sans |
+| Typografie | **Schriftgröße (pt)** | Basis-Textgröße, 6–24 pt. | 10,5 pt |
+| Typografie | **Zeilenabstand** | Vielfaches der Schriftgröße, 1,0–2,0. | 1,45 |
+| Typografie | **Maximale Bildbreite (%)** | Anteil der Textbreite, den ein Bild höchstens einnimmt, 25–100 %. | 100 % |
+| Inhalt | **Titel oben** | Zeigt einen abgeleiteten Titel (erste Überschrift oder Dateiname) oben im PDF. | An |
+| Inhalt | **Frontmatter als Metadaten-Block zeigen** | Frontmatter erscheint als dezente Metadaten-Liste oben statt als roher YAML-Block. | An |
+| Inhalt | **Seitenzahlen** | Druckt eine Seitenzahl auf jede Seite. | An |
+| Inhalt | **Laufende Fußzeile** | Wiederholt Titel und heutiges Datum in der Fußzeile jeder Seite. | Aus |
+
+Die Umbruch-Einstellungen (Seitenumbruch-Marker, Tabellen/Bilder/Code zusammenhalten,
+Überschriften-Waisenschutz) liegen in der Sektion **Umbruch**.
+
+### Dateiname-Schema
+
+Standardmäßig heißt das PDF wie die Notiz (`{title}`). Das Schema kennt diese Platzhalter:
+
+| Platzhalter | Bedeutung | Beispiel |
+| --- | --- | --- |
+| `{title}` | Name der Notiz | `Bericht` |
+| `{date}` | Export-Datum | `2026-07-16` |
+| `{time}` | Export-Uhrzeit | `1435` |
+| `{folder}` | Ordner, in dem die Notiz liegt | `Projekte` |
+| `{version}` | Export-Zähler | `1`, `2`, `3` … |
+
+`{date} {title}` ergibt `2026-07-16 Bericht.pdf`. Ein unbekannter Platzhalter bleibt stehen —
+so wird ein Tippfehler im Dateinamen sichtbar, statt still zu verschwinden; ein leeres Schema
+fällt auf `{title}` zurück.
+
+**Mit `{version}` überschreibst du nichts mehr.** Ohne ihn ersetzt der zweite Export die
+vorherige PDF. Mit ihm zählt jeder Export auf den nächsten freien Namen hoch (`Bericht v1.pdf`,
+`Bericht v2.pdf`, …). Im Modus *Anhangordner* ist er wirkungslos — dort löst Obsidian
+Kollisionen selbst auf.
 
 ## Standard-Markdown-Umfang & Graceful Degradation
 

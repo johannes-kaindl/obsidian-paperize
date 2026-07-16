@@ -73,22 +73,48 @@ heading (or the note's filename, if there is none) becomes the title.
 
 ## Settings
 
-| Setting | Description | Default |
-| --- | --- | --- |
-| **Font family** | Body typeface — Sans (Helvetica), Serif (Times), or Mono (Courier). Adobe Core-14 standard fonts only, see [Fonts](#fonts--the-core-14-limitation) below. | Sans |
-| **Font size (pt)** | Base body text size, 6–24 pt. | 11 pt |
-| **Page size** | A4 or Letter. | A4 |
-| **Margins (mm)** | Page margin on all four sides, 12–50 mm. | 20 mm |
-| **Strip frontmatter** | Remove YAML frontmatter from the exported body. | On |
-| **Title on top** | Show a derived title (first heading, or filename) at the top of the PDF. | On |
-| **Page numbers** | Print a page number on every page. | On |
-| **Running header/footer** | Repeat the title and today's date in the page footer. | Off |
-| **Output destination** | Where the PDF is written: *next to the note*, *Obsidian attachment folder*, *custom folder*, or *share/open out of the vault*. | Next to the note |
-| **Custom output folder** | Vault-relative folder used only when output destination is *custom folder*. | *(empty)* |
+The Settings tab is grouped into five collapsible sections. **Output** starts expanded —
+it holds the destination and the filename scheme; the rest remember whether you left them
+open.
 
-Image width is capped internally (`imageMaxWidthPct`, default 100 % of the content
-width) but is not yet exposed as its own control in the Settings tab — it is on the
-roadmap.
+| Section | Setting | Description | Default |
+| --- | --- | --- | --- |
+| Output | **Output destination** | Where the PDF is written: *next to the note*, *Obsidian attachment folder*, *custom folder*, or *share/open out of the vault*. | Next to the note |
+| Output | **Custom output folder** | Vault-relative folder. Only shown when the destination is *custom folder*. | *(empty)* |
+| Output | **Filename scheme** | See [below](#filename-scheme). | `{title}` |
+| Page | **Page size** | A4 or Letter. | A4 |
+| Page | **Margins (mm)** | Page margin on all four sides, 12–50 mm. | 20 mm |
+| Typography | **Font family** | Body typeface — Sans (Helvetica), Serif (Times), or Mono (Courier). Adobe Core-14 standard fonts only, see [Fonts](#fonts--the-core-14-limitation) below. | Sans |
+| Typography | **Font size (pt)** | Base body text size, 6–24 pt. | 10.5 pt |
+| Typography | **Line height** | Multiple of the font size, 1.0–2.0. | 1.45 |
+| Typography | **Maximum image width (%)** | Share of the text width an image may occupy at most, 25–100 %. | 100 % |
+| Content | **Title on top** | Show a derived title (first heading, or filename) at the top of the PDF. | On |
+| Content | **Show frontmatter as a metadata block** | Frontmatter appears as a subtle metadata list at the top instead of a raw YAML block. | On |
+| Content | **Page numbers** | Print a page number on every page. | On |
+| Content | **Running footer** | Repeat the title and today's date in the page footer. | Off |
+
+Pagination settings (page-break marker, keeping tables/images/code together, heading orphan
+control) live in the **Pagination** section.
+
+### Filename scheme
+
+By default the PDF is named after the note (`{title}`). The scheme accepts these placeholders:
+
+| Placeholder | Meaning | Example |
+| --- | --- | --- |
+| `{title}` | The note's name | `Report` |
+| `{date}` | Export date | `2026-07-16` |
+| `{time}` | Export time | `1435` |
+| `{folder}` | Folder the note lives in | `Projects` |
+| `{version}` | Export counter | `1`, `2`, `3` … |
+
+`{date} {title}` yields `2026-07-16 Report.pdf`. An unknown placeholder is left as-is, so a
+typo shows up in the filename instead of silently disappearing; an empty scheme falls back to
+`{title}`.
+
+**`{version}` is how you avoid overwriting.** Without it, exporting twice replaces the previous
+PDF. With it, each export counts up to the next free name (`Report v1.pdf`, `Report v2.pdf`, …).
+It has no effect in the *attachment folder* mode, where Obsidian resolves collisions itself.
 
 ## Standard Markdown scope & graceful degradation
 
