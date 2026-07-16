@@ -1,7 +1,9 @@
 // src/obsidian/main.ts
 import { Plugin, Notice, MarkdownRenderer, Component, TFile, normalizePath, getLanguage } from 'obsidian';
 import { DEFAULT_SETTINGS, PaperizeSettings, PaperizeSettingTab, settingsToOptions } from './settings';
-import { writePdf } from './output';
+import { writePdf, resolveVersionedOutputPath } from './output';
+import { buildFilename } from '../core/filename';
+import { mergeSettings } from '../vendor/kit/settings';
 import { stripFrontmatter, deriveTitle } from '../core/prepare';
 import { buildMetadataEntries } from '../core/frontmatter';
 import { domToIrSync, resolveImages } from '../core/dom-to-ir';
@@ -21,19 +23,24 @@ interface FileManagerExt {
   getAvailablePathForAttachment?: (filename: string, sourcePath: string) => Promise<string>;
 }
 
-// Local YYYY-MM-DD formatter for the running footer date. Obsidian's global
+// Local date/time parts for the running footer and the filename scheme. Obsidian's global
 // `moment` is intentionally not used here: obsidian.d.ts re-exports it via a
 // namespace import (`import * as Moment from 'moment'`), which causes
 // TypeScript to strip the call signature from `typeof Moment` — `moment()`
 // is "not callable" under this repo's TS/obsidian-types combination.
-function todayStr(): string {
+function nowParts(): { date: string; time: string } {
   const d = new Date();
   const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return {
+    date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+    time: `${pad(d.getHours())}${pad(d.getMinutes())}`,
+  };
 }
 
 export default class PaperizePlugin extends Plugin {
-  settings: PaperizeSettings = { ...DEFAULT_SETTINGS };
+  // mergeSettings statt Spread: { ...DEFAULT_SETTINGS } teilt die uiCollapsed-Referenz mit
+  // den Defaults, ein Zuklappen wuerde sie mutieren.
+  settings: PaperizeSettings = mergeSettings(DEFAULT_SETTINGS, null);
 
   async onload() {
     // Language must be resolved before any user-facing string is registered below.
@@ -46,8 +53,9 @@ export default class PaperizePlugin extends Plugin {
   }
 
   async loadSettings() {
-    const data = (await this.loadData()) as Partial<PaperizeSettings> | null;
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, data ?? {});
+    // mergeSettings statt Object.assign: klont Default-Werte eine Ebene tief, damit
+    // settings.uiCollapsed nie die Referenz mit DEFAULT_SETTINGS teilt (UI-STANDARD §5).
+    this.settings = mergeSettings(DEFAULT_SETTINGS, await this.loadData());
   }
   async saveSettings() { await this.saveData(this.settings); }
 
@@ -85,7 +93,7 @@ export default class PaperizePlugin extends Plugin {
     }
 
     const totalUnsupported = unsupportedCount + resolved.unsupportedAdded;
-    const dateStr = todayStr();
+    const { date: dateStr, time: timeStr } = nowParts();
     const options = settingsToOptions(this.settings, title, dateStr);
 
     // Re-surface frontmatter as a clean metadata block at the top (after the title).
@@ -97,27 +105,42 @@ export default class PaperizePlugin extends Plugin {
     }
     const bytes = renderPdf(blocks, options);
 
-    const attachmentPath = this.settings.outputMode === 'attachmentFolder' ? await this.attachmentPathFor(file) : '';
     const noteDir = file.parent ? file.parent.path : '';
+    const vars = {
+      title: file.basename,
+      date: dateStr,
+      time: timeStr,
+      folder: file.parent ? file.parent.name : '',
+    };
+    // Der Anhang-Pfad braucht den fertigen Dateinamen. {version} ist in diesem Modus
+    // wirkungslos (Obsidian löst Kollisionen selbst auf) — daher version: 1, kein Zirkel.
+    const attachmentPath = this.settings.outputMode === 'attachmentFolder'
+      ? await this.attachmentPathFor(file, buildFilename(this.settings.filenameTemplate, { ...vars, version: 1 }))
+      : '';
+    const { path, baseName } = await resolveVersionedOutputPath(
+      this.app,
+      this.settings.outputMode,
+      this.settings.filenameTemplate,
+      vars,
+      { noteDir: noteDir === '/' ? '' : noteDir, customFolder: this.settings.customFolder, attachmentPath },
+    );
     await writePdf(this.app, bytes, this.settings.outputMode, {
-      noteDir: noteDir === '/' ? '' : noteDir,
-      baseName: file.basename,
-      customFolder: this.settings.customFolder,
-      attachmentPath,
+      baseName,
+      resolvedPath: path,
       openAfter: false,
     });
 
     if (totalUnsupported > 0) new Notice(t('notice.simplified', totalUnsupported));
   }
 
-  // Resolve the destination path Obsidian would use for an attachment named <base>.pdf.
-  private async attachmentPathFor(file: TFile): Promise<string> {
+  // Resolve the destination path Obsidian would use for an attachment named <baseName>.pdf.
+  private async attachmentPathFor(file: TFile, baseName: string): Promise<string> {
     // getAvailablePathForAttachment is present at runtime but not in the public typings.
     const fm = this.app.fileManager as FileManagerExt;
     if (typeof fm.getAvailablePathForAttachment === 'function') {
-      return normalizePath(await fm.getAvailablePathForAttachment(`${file.basename}.pdf`, file.path));
+      return normalizePath(await fm.getAvailablePathForAttachment(`${baseName}.pdf`, file.path));
     }
-    return normalizePath(`${file.parent ? file.parent.path : ''}/${file.basename}.pdf`);
+    return normalizePath(`${file.parent ? file.parent.path : ''}/${baseName}.pdf`);
   }
 
   // Decode an <img src> (app://, data:, or vault-relative) to JPEG bytes.

@@ -3,6 +3,7 @@ import { App, Plugin, PluginSettingTab, Setting } from 'obsidian';
 import { DEFAULT_OPTIONS } from '../vendor/kit/pdf';
 import type { LayoutOptions, FontChoice } from '../vendor/kit/pdf';
 import { t } from '../vendor/kit/i18n';
+import { DEFAULT_FILENAME_TEMPLATE } from '../core/filename';
 
 export type OutputMode = 'nextToNote' | 'attachmentFolder' | 'customFolder' | 'share';
 
@@ -19,6 +20,10 @@ export interface PaperizeSettings {
   imageMaxWidthPct: number;
   outputMode: OutputMode;
   customFolder: string;
+  /** Dateiname-Schema, Platzhalter siehe src/core/filename.ts. */
+  filenameTemplate: string;
+  /** Auf-/Zu-Zustand der Settings-Sektionen, Key = SectionDef.key. */
+  uiCollapsed: Record<string, boolean>;
   pageBreakMarker: string;
   keepTablesTogether: boolean;
   repeatTableHeader: boolean;
@@ -40,6 +45,8 @@ export const DEFAULT_SETTINGS: PaperizeSettings = {
   imageMaxWidthPct: 100,
   outputMode: 'nextToNote',
   customFolder: '',
+  filenameTemplate: DEFAULT_FILENAME_TEMPLATE,
+  uiCollapsed: {},
   pageBreakMarker: '\\pagebreak',
   keepTablesTogether: true,
   repeatTableHeader: true,

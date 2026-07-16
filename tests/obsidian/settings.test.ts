@@ -1,6 +1,29 @@
 import { describe, it, expect, vi } from 'vitest';
 vi.mock('obsidian', () => ({ PluginSettingTab: class {}, Setting: class {}, App: class {} }));
 import { DEFAULT_SETTINGS, settingsToOptions } from '../../src/obsidian/settings';
+import { mergeSettings } from '../../src/vendor/kit/settings';
+
+describe('settings defaults', () => {
+  it("defaults the filename scheme to the note title alone (today's behaviour)", () => {
+    expect(DEFAULT_SETTINGS.filenameTemplate).toBe('{title}');
+  });
+  it('starts with no persisted section states', () => {
+    expect(DEFAULT_SETTINGS.uiCollapsed).toEqual({});
+  });
+});
+
+describe('mergeSettings over DEFAULT_SETTINGS', () => {
+  it('fills in keys missing from stored data', () => {
+    const merged = mergeSettings(DEFAULT_SETTINGS, { marginMm: 30 });
+    expect(merged.marginMm).toBe(30);
+    expect(merged.filenameTemplate).toBe('{title}');
+  });
+  it('never shares the uiCollapsed reference with the defaults', () => {
+    const merged = mergeSettings(DEFAULT_SETTINGS, null);
+    merged.uiCollapsed.output = true;
+    expect(DEFAULT_SETTINGS.uiCollapsed).toEqual({}); // Defaults unberuehrt
+  });
+});
 
 describe('settingsToOptions', () => {
   it('maps margins uniformly and threads the title', () => {
