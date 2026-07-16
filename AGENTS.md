@@ -106,8 +106,9 @@ Einordnung: [`SECURITY.md`](https://github.com/johannes-kaindl/obsidian-paperize
 - `tools/` enthält den Vendoring-Sync gegen `obsidian-kit`; bei Kit-Updates dort
   synchronisieren, nicht `src/vendor/kit/pdf/` von Hand nachziehen.
 - `moment()` aus dem Obsidian-Namespace-Re-Export ist unter diesem TS/obsidian-types-Setup
-  „not callable" — siehe `todayStr()` in `src/obsidian/main.ts` für den lokalen
-  YYYY-MM-DD-Formatter als Workaround.
+  „not callable" — siehe `nowParts()` in `src/obsidian/main.ts` für den lokalen
+  Datums-/Zeit-Formatter als Workaround (liefert `date` für die Fußzeile und `time` für das
+  Dateiname-Schema).
 
 ## Memory
 

@@ -6,6 +6,42 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Filename scheme** — the exported PDF no longer has to be named after the note. The
+  scheme accepts `{title}` `{date}` `{time}` `{folder}` and `{version}`; the default
+  `{title}` keeps the previous behaviour unchanged. An unknown placeholder is left as-is so
+  a typo shows up in the filename instead of silently disappearing, and an empty scheme
+  falls back to `{title}`.
+- **`{version}` prevents overwriting.** Without it, exporting a note twice replaces the
+  previous PDF (unchanged behaviour). With it, each export counts up to the next free name
+  (`Report v1.pdf`, `Report v2.pdf`, …). It has no effect in the *attachment folder* mode,
+  where Obsidian resolves collisions itself.
+- **Line height** and **maximum image width** are now adjustable. Both settings already
+  existed and were already honoured by the PDF engine, but had no control in the Settings
+  tab — they could only be changed by editing `data.json` by hand.
+
+### Changed
+
+- **The Settings tab is now grouped into five collapsible sections** (Output, Page,
+  Typography, Content, Pagination) instead of seventeen settings in one flat list.
+  **Output** starts expanded; the others remember whether you left them open. If you ever
+  went looking for where the PDF is saved and did not find it: it was always there, just
+  buried — it is now the first thing the tab shows.
+- **Font size, margins and heading orphan control are sliders.** As text fields, a value
+  outside the allowed range was silently discarded: nothing was saved, nothing was said,
+  and the field kept showing the value you typed while the old one stayed in effect. The
+  sliders make an invalid value impossible and show the limits up front.
+- The custom output folder only appears when the output destination is actually *custom
+  folder* — so it no longer needs a line of text explaining when it applies.
+
+### Fixed
+
+- Settings are merged with the shared kit's `mergeSettings` instead of a flat
+  `Object.assign`. With the new section states, a flat merge would have shared a reference
+  with the defaults, and collapsing a section for the first time would have mutated them.
+- Both READMEs listed the default font size as 11 pt; it has always been 10.5 pt.
+
 ## [0.2.0] — 2026-07-11
 
 ### Added
