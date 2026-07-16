@@ -44,6 +44,32 @@ Abbruch. Desktop **und** iOS/iPad (`isDesktopOnly: false`) erzeugen echte Vektor
   (`--exclude-dir=obsidian`); alles übrige im Vendor (`i18n`, `pdf`, `settings`) ist pure und
   bleibt geprüft. Die Grenze verläuft bei **„pure", nicht bei „vendored"**: Ein neues
   gekoppeltes Kit-Modul gehört in diesen Ordner, nicht in eine weitere Skript-Ausnahme.
+- **Settings-Tab — Sektionen sind Daten, nicht Layout:** `SECTIONS` in `src/obsidian/settings.ts`
+  ist eine pure Tabelle (Key · i18n-Titel · Startzustand), `display()` liest nur daraus. Grund:
+  Der Obsidian-Mock des Repos ist minimal (`Setting` ist eine leere Klasse), `display()` selbst
+  ist damit nicht unit-testbar — die Tabelle und `createCollapsibleStorage` sind es. Wer eine
+  Sektion hinzufügt, ändert die Tabelle, nicht die Render-Logik.
+- **`uiCollapsed` erzwingt `mergeSettings`:** Mit dem Sektions-Zustand kam der erste
+  **Objekt-Default** in die Settings. Ein flacher Merge (`Object.assign`/Spread) teilt dessen
+  Referenz mit `DEFAULT_SETTINGS` — das erste Zuklappen mutiert dann die Modul-Defaults. Beide
+  Merge-Stellen in `main.ts` nutzen deshalb das vendored `mergeSettings`; ein Regressionstest
+  hält das fest.
+- **Begrenzte Zahlenwerte gehören in einen Slider, nicht in ein Textfeld:** Textfeld +
+  `if`-Guard im `onChange` verwirft eine Eingabe außerhalb der Grenzen **still** — nichts
+  gespeichert, nichts gemeldet, das Feld zeigt weiter den getippten Wert. Die Anzeige lügt.
+  `addSlider().setLimits(…).setDynamicTooltip()` macht den ungültigen Wert unmöglich und zeigt
+  die Grenzen. Gilt für `baseSizePt`/`marginMm`/`lineHeight`/`imageMaxWidthPct`/`headingKeepWithLines`.
+- **Dateiname-Schema:** `src/core/filename.ts` ist pure und rechnet nur; die `{version}`-Zählung
+  braucht Vault-Zugriff und lebt deshalb in `resolveVersionedOutputPath` (`output.ts`).
+  `hasVersionPlaceholder` ist **load-bearing**: Ohne diesen Guard würde die Suchschleife bei
+  einem Schema ohne `{version}` denselben Namen endlos neu bauen. Im Anhang-Modus bleibt
+  `{version}` wirkungslos — dort löst Obsidian Kollisionen selbst auf, zwei Zähler übereinander
+  ergäben `Bericht v1 1.pdf`.
+- **SDD-Artefakte liegen im Coding-Cockpit, nicht hier** (CORE-META-12/14 der Workspace-
+  Konventionen): Specs/Plans tragen Arbeitskontext (Schwester-Repo-Interna, absolute Pfade,
+  interne Doku-Referenzen), der in einem öffentlichen Repo niemandem nützt. Das Repo behält die
+  Design-Essenz — diese Gotchas plus `CHANGELOG.md`. **Keine absoluten Pfade außerhalb des Repos**
+  in committete Dateien; im Zweifel Platzhalter (`<code-workspace>/…`, `$VAULT/…`).
 - **`check:pure`-Gotcha (2026-07-16):** Das Muster war `from 'obsidian'` — nur **einfache**
   Anführungszeichen. Das Kit schreibt `from "obsidian"` (doppelte), Paperize einfache; das Gate
   war damit **blind für genau den Fremdcode, den es prüfen soll**. Das Muster lautet jetzt
@@ -123,7 +149,7 @@ Letterheads bewusstem Zero-Build-Vanilla-JS-Profil.
 
 ## Dach-Kontext (obsidian-plugins)
 
-Dieses Repo liegt unter dem Koordinations-Dach `/Users/Shared/code/obsidian-plugins/`.
+Dieses Repo liegt unter dem Koordinations-Dach `<code-workspace>/obsidian-plugins/`.
 **Vor dem Lösen eines Problems:** `../AGENTS.md` (Kit-first-Regel) und `../REGISTRY.md`
 (Lösungs-Registry) prüfen — viele Probleme sind in Nachbar-Plugins oder im
 `obsidian-kit` bereits gelöst.
