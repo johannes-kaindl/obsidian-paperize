@@ -4,6 +4,7 @@ import { DEFAULT_OPTIONS } from '../vendor/kit/pdf';
 import type { LayoutOptions, FontChoice } from '../vendor/kit/pdf';
 import { t } from '../vendor/kit/i18n';
 import { DEFAULT_FILENAME_TEMPLATE } from '../core/filename';
+import type { CollapsibleStorage } from '../vendor/kit/obsidian/collapsible';
 
 export type OutputMode = 'nextToNote' | 'attachmentFolder' | 'customFolder' | 'share';
 
@@ -73,6 +74,40 @@ export function settingsToOptions(s: PaperizeSettings, title: string | null, dat
       keepImagesTogether: s.keepImagesTogether,
       keepCodeTogether: s.keepCodeTogether,
       headingKeepWithLines: s.headingKeepWithLines,
+    },
+  };
+}
+
+/** Eine Settings-Sektion: sichtbarer Titel (i18n-Key), Persistenz-Key, Startzustand.
+ *  Reihenfolge = Render-Reihenfolge. Pure Daten, damit ohne DOM testbar (UI-STANDARD §6). */
+export interface SectionDef {
+  key: string;
+  titleKey: string;
+  defaultCollapsed: boolean;
+}
+
+/** „Ausgabe" startet als einzige offen: das Ausgabeziel existierte schon, war in der flachen
+ *  17-Settings-Liste aber unauffindbar. Danach gewinnt der persistierte User-Zustand. */
+export const SECTIONS: SectionDef[] = [
+  { key: 'output', titleKey: 'settings.section.output', defaultCollapsed: false },
+  { key: 'page', titleKey: 'settings.section.page', defaultCollapsed: true },
+  { key: 'type', titleKey: 'settings.section.type', defaultCollapsed: true },
+  { key: 'content', titleKey: 'settings.section.content', defaultCollapsed: true },
+  { key: 'pagination', titleKey: 'settings.section.pagination', defaultCollapsed: true },
+];
+
+/** Persistenz-Bridge zwischen collapsibleSection und den Plugin-Settings. Benannt und
+ *  exportiert (statt Closure in display()), damit sie ohne DOM testbar ist.
+ *  `undefined` für einen unbekannten Key ist load-bearing: nur so greift
+ *  SectionDef.defaultCollapsed — ein `?? false` hier würde jede Sektion aufklappen. */
+export function createCollapsibleStorage(
+  plugin: { settings: PaperizeSettings; saveSettings: () => Promise<void> },
+): CollapsibleStorage {
+  return {
+    getCollapsed: (key) => (key in plugin.settings.uiCollapsed ? plugin.settings.uiCollapsed[key] : undefined),
+    setCollapsed: (key, collapsed) => {
+      plugin.settings.uiCollapsed[key] = collapsed;
+      void plugin.saveSettings();
     },
   };
 }

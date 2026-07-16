@@ -1,7 +1,72 @@
 import { describe, it, expect, vi } from 'vitest';
 vi.mock('obsidian', () => ({ PluginSettingTab: class {}, Setting: class {}, App: class {} }));
-import { DEFAULT_SETTINGS, settingsToOptions } from '../../src/obsidian/settings';
+import { DEFAULT_SETTINGS, settingsToOptions, SECTIONS, createCollapsibleStorage } from '../../src/obsidian/settings';
 import { mergeSettings } from '../../src/vendor/kit/settings';
+import { EN, DE } from '../../src/i18n/strings';
+
+describe('SECTIONS', () => {
+  it('lists the five sections in render order, output first', () => {
+    expect(SECTIONS.map((s) => s.key)).toEqual(['output', 'page', 'type', 'content', 'pagination']);
+  });
+  it('opens only the output section by default', () => {
+    // Der Kern dieses Zyklus: das Ausgabeziel war unauffindbar.
+    const open = SECTIONS.filter((s) => !s.defaultCollapsed).map((s) => s.key);
+    expect(open).toEqual(['output']);
+  });
+  it('uses unique keys (they are the persistence keys)', () => {
+    expect(new Set(SECTIONS.map((s) => s.key)).size).toBe(SECTIONS.length);
+  });
+  it('has a translated title for every section in both languages', () => {
+    for (const s of SECTIONS) {
+      expect(EN[s.titleKey], `EN missing ${s.titleKey}`).toBeTruthy();
+      expect(DE[s.titleKey], `DE missing ${s.titleKey}`).toBeTruthy();
+    }
+  });
+});
+
+describe('filename scheme help text', () => {
+  it('shows the placeholders literally — t() only interpolates {0}, {1}, …', () => {
+    expect(EN['settings.filename.desc']).toContain('{title}');
+    expect(DE['settings.filename.desc']).toContain('{version}');
+  });
+});
+
+describe('createCollapsibleStorage', () => {
+  function fakePlugin() {
+    const saves: number[] = [];
+    const plugin = {
+      settings: { ...DEFAULT_SETTINGS, uiCollapsed: {} as Record<string, boolean> },
+      saveSettings: async () => { saves.push(1); },
+    };
+    return { plugin, saves };
+  }
+
+  it('returns undefined for an untouched section so defaultCollapsed wins', () => {
+    const { plugin } = fakePlugin();
+    expect(createCollapsibleStorage(plugin).getCollapsed('output')).toBeUndefined();
+  });
+  it('persists a toggle into uiCollapsed and saves', () => {
+    const { plugin, saves } = fakePlugin();
+    const storage = createCollapsibleStorage(plugin);
+    storage.setCollapsed('page', true);
+    expect(plugin.settings.uiCollapsed.page).toBe(true);
+    expect(storage.getCollapsed('page')).toBe(true);
+    expect(saves.length).toBe(1);
+  });
+  it('reads back a stored false — not just truthy values', () => {
+    const { plugin } = fakePlugin();
+    const storage = createCollapsibleStorage(plugin);
+    storage.setCollapsed('output', false);
+    expect(storage.getCollapsed('output')).toBe(false); // nicht undefined!
+  });
+  it('never mutates DEFAULT_SETTINGS when toggling (the reference bug)', () => {
+    // Regressionstest: mit Object.assign/Spread teilte settings.uiCollapsed die Referenz
+    // mit den Defaults, und das erste Zuklappen mutierte das Modul.
+    const settings = mergeSettings(DEFAULT_SETTINGS, null);
+    createCollapsibleStorage({ settings, saveSettings: async () => {} }).setCollapsed('page', true);
+    expect(DEFAULT_SETTINGS.uiCollapsed).toEqual({});
+  });
+});
 
 describe('settings defaults', () => {
   it("defaults the filename scheme to the note title alone (today's behaviour)", () => {

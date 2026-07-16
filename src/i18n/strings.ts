@@ -17,10 +17,25 @@ export const EN: Record<string, string> = {
   "notice.simplified": "PDF created. {0} element(s) were simplified (e.g. callouts, math).",
   "notice.saved": "PDF saved: {0}",
 
+  // settings — sections
+  "settings.section.output": "Output",
+  "settings.section.page": "Page",
+  "settings.section.type": "Typography",
+  "settings.section.content": "Content",
+  "settings.section.pagination": "Pagination",
+
+  // settings — filename scheme
+  "settings.filename.name": "Filename scheme",
+  "settings.filename.desc": "Placeholders: {title} {date} {time} {folder} {version}. Empty = {title} (the note's name). {version} counts up (1, 2, 3 …) instead of overwriting an existing PDF — it has no effect in the attachment-folder mode, where Obsidian resolves collisions itself.",
+
   // settings
   "settings.font.name": "Font family",
   "settings.font.desc": "Body typeface (standard fonts only).",
   "settings.fontSize.name": "Font size (pt)",
+  "settings.lineHeight.name": "Line height",
+  "settings.lineHeight.desc": "Multiple of the font size. 1.45 = comfortable reading.",
+  "settings.imageWidth.name": "Maximum image width (%)",
+  "settings.imageWidth.desc": "Share of the text width an image may occupy at most.",
   "settings.pageSize.name": "Page size",
   "settings.margins.name": "Margins (mm)",
   "settings.frontmatter.name": "Show frontmatter as a metadata block",
@@ -33,8 +48,8 @@ export const EN: Record<string, string> = {
   "settings.output.attachmentFolder": "Obsidian attachment folder",
   "settings.output.customFolder": "Custom folder",
   "settings.output.share": "Share/open out of the vault",
+  // Kein .desc mehr: die Zeile rendert nur noch im Modus „Custom folder" — die UI sagt es selbst.
   "settings.customFolder.name": "Custom output folder",
-  "settings.customFolder.desc": "Only used with “Custom folder”.",
   "settings.pagebreak.name": "Page-break marker",
   "settings.pagebreak.desc": "A paragraph matching exactly this text forces a page break. Empty = feature off.",
   "settings.keepTables.name": "Keep tables together",
@@ -61,10 +76,25 @@ export const DE: Record<string, string> = {
   "notice.simplified": "PDF erstellt. {0} Element(e) wurden vereinfacht dargestellt (z.B. Callouts, Mathe).",
   "notice.saved": "PDF gespeichert: {0}",
 
+  // settings — sections
+  "settings.section.output": "Ausgabe",
+  "settings.section.page": "Seite",
+  "settings.section.type": "Typografie",
+  "settings.section.content": "Inhalt",
+  "settings.section.pagination": "Umbruch",
+
+  // settings — filename scheme
+  "settings.filename.name": "Dateiname-Schema",
+  "settings.filename.desc": "Platzhalter: {title} {date} {time} {folder} {version}. Leer = {title} (Name der Notiz). {version} zählt hoch (1, 2, 3 …), statt eine vorhandene PDF zu überschreiben — im Anhangordner-Modus wirkungslos, dort löst Obsidian Kollisionen selbst auf.",
+
   // settings
   "settings.font.name": "Schriftfamilie",
   "settings.font.desc": "Basis-Font (nur Standardschriften).",
   "settings.fontSize.name": "Schriftgröße (pt)",
+  "settings.lineHeight.name": "Zeilenabstand",
+  "settings.lineHeight.desc": "Vielfaches der Schriftgröße. 1,45 = komfortabel lesbar.",
+  "settings.imageWidth.name": "Maximale Bildbreite (%)",
+  "settings.imageWidth.desc": "Anteil der Textbreite, den ein Bild höchstens einnehmen darf.",
   "settings.pageSize.name": "Seitenmaß",
   "settings.margins.name": "Ränder (mm)",
   "settings.frontmatter.name": "Frontmatter als Metadaten-Block zeigen",
@@ -77,8 +107,8 @@ export const DE: Record<string, string> = {
   "settings.output.attachmentFolder": "Obsidian-Anhangordner",
   "settings.output.customFolder": "Eigener Ordner",
   "settings.output.share": "Aus Vault teilen/öffnen",
+  // Kein .desc mehr: die Zeile rendert nur noch im Modus „Eigener Ordner" — die UI sagt es selbst.
   "settings.customFolder.name": "Eigener Ausgabe-Ordner",
-  "settings.customFolder.desc": "Nur bei „Eigener Ordner“.",
   "settings.pagebreak.name": "Seitenumbruch-Marker",
   "settings.pagebreak.desc": "Ein Absatz, der genau diesem Text entspricht, erzwingt einen Seitenumbruch. Leer = Funktion aus.",
   "settings.keepTables.name": "Tabellen zusammenhalten",
