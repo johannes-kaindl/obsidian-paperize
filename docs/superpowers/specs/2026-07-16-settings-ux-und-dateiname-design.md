@@ -2,6 +2,13 @@
 
 **Datum:** 2026-07-16 · **Status:** validiert, freigegeben · **Zyklus:** brainstorm → spec → plan → SDD
 
+> **Herkunft:** Eine parallele Session schrieb am selben Tag einen Spec zum selben Thema
+> (`1bc7253`, reverted in `4c448ff`). Drei seiner Entscheidungen sind hier übernommen, weil sie
+> besser sind als die ursprünglich geplanten: die Vendor-Schichtung (§ Kit-first), die Slider
+> statt stiller Validierung (§ Fehlerbehandlung) und die bedingte Ordner-Zeile (§ Sektions-Schnitt).
+> Der Rest folgt diesem Spec — insbesondere die offene Ausgabe-Sektion, die der andere Spec
+> mangels Kenntnis von Jays Auffindbarkeits-Befund zugeklappt lassen wollte.
+
 ## Problem
 
 Jay wollte in Paperize „ein Ausgabeziel definieren, also wo das PDF gespeichert wird" — und hat es
@@ -43,6 +50,24 @@ Regulär vendored (unverändert, mit Herkunfts-Header):
 - `collapsibleSection` / `resolveCollapsed` / `COLLAPSIBLE_CSS` — Kit `src/obsidian/collapsible.ts`
 - `mergeSettings` — Kit `src/pure/settings.ts`
 
+**Der Vendor bekommt eine Schicht.** Bislang galt in Paperize implizit „`src/vendor/kit/` == pure",
+maschinell erzwungen durch `check:pure` (`grep` über `src/core src/vendor`). `collapsible.ts`
+importiert `setIcon` — die Annahme trägt nicht mehr, seit das Kit selbst zwei Schichten hat.
+
+**Entscheidung:** Der Vendor **spiegelt die Kit-Struktur**. Obsidian-gekoppelte Kit-Module liegen
+unter `src/vendor/kit/obsidian/`, alles übrige im Vendor bleibt pure. `check:pure` wird dadurch
+**geschärft statt aufgeweicht**:
+
+```
+! grep -rl "from 'obsidian'" src/core src/vendor --exclude-dir=obsidian
+```
+
+Das ist einer dateispezifischen Ausnahme (`--exclude=collapsible.ts`) vorzuziehen: Die Grenze wird
+strukturell benannt statt pro Datei nachgepflegt, und jedes künftige gekoppelte Kit-Modul fällt
+ohne Skript-Änderung an die richtige Stelle. vault-rag legt `collapsible.ts` flach in
+`src/vendor/kit/` und hat kein `check:pure` — dort gibt es kein Muster zu übernehmen; Paperize ist
+hier strenger und bleibt es.
+
 ## Architektur
 
 Genau **eine** neue pure Datei; der Rest sind Änderungen an Bestehendem. Der `check:pure`-Gate bleibt
@@ -52,10 +77,11 @@ gewahrt: Der Resolver rechnet nur, jeder Vault-Zugriff lebt in `src/obsidian/`.
 |---|---|
 | `src/core/filename.ts` | **neu, pure** — `buildFilename` · `sanitizeFilename` · `hasVersionPlaceholder` |
 | `src/obsidian/output.ts` | Versions-Schleife statt festem `basename` |
-| `src/obsidian/settings.ts` | fünf Sektionen statt flacher Kette; drei neue Kontrollen |
-| `src/obsidian/main.ts` | `mergeSettings` statt `Object.assign` (Z. 50); Template-Variablen bauen |
-| `src/vendor/kit/collapsible.ts` | **neu vendored** aus Kit 0.13.0 |
-| `src/vendor/kit/settings.ts` | **neu vendored** (`mergeSettings`) |
+| `src/obsidian/settings.ts` | fünf Sektionen statt flacher Kette; `SECTIONS` · `createCollapsibleStorage`; drei neue Kontrollen |
+| `src/obsidian/main.ts` | `mergeSettings` statt `Object.assign` (Z. 50 **und** Z. 36); Template-Variablen bauen |
+| `src/vendor/kit/obsidian/collapsible.ts` | **neu vendored** aus Kit 0.14.0 (obsidian-gekoppelt, eigene Schicht) |
+| `src/vendor/kit/settings.ts` | **neu vendored** (`mergeSettings`, pure) |
+| `package.json` · `AGENTS.md` | `check:pure` auf die Vendor-Schichtung geschärft |
 | `styles.css` | `COLLAPSIBLE_CSS` (Datei ist bislang ein 53-Byte-Platzhalter) |
 | `src/i18n/strings.ts` | EN + DE, Key-Set-Gleichheit ist per Test erzwungen |
 
@@ -74,7 +100,20 @@ direkte Antwort auf das Auffindbarkeits-Problem. Danach gewinnt der persistierte
 | 5 | Umbruch | `pagination` | zu | Umbruch-Marker · Tabellen/Bilder/Code zusammenhalten · Überschriften-Bindung |
 
 Persistenz via neues Feld `uiCollapsed: Record<string, boolean>` in `PaperizeSettings`, verdrahtet
-über den `CollapsibleStorage`-Callback.
+über `createCollapsibleStorage(plugin)` — eine **benannte, exportierte** Funktion statt einer Closure
+in `display()`, damit die Persistenz-Bridge ohne DOM testbar ist.
+
+**Warum „Ausgabe" offen ist:** vault-rag lässt genau die Sektion offen, ohne die das Plugin nicht
+einzurichten ist (Endpunkt). Paperize hat keine solche Pflichtkonfiguration — es exportiert mit den
+Defaults sofort. Das spräche für „alle zu" (so der parallele Spec). Der Ausschlag gibt der
+empirische Befund: Jay hat das Ausgabeziel **gesucht und nicht gefunden**. Eine Sektion, die den
+dokumentierten Fehlgriff des einzigen bekannten Nutzers enthält, ist der Kandidat für „muss man
+sehen". Danach gewinnt ohnehin der persistierte Zustand.
+
+**Bedingte Ordner-Zeile:** `customFolder` rendert nur bei `outputMode === 'customFolder'`; das
+Dropdown ruft nach `save()` ein `this.display()`. Dadurch entfällt der i18n-Key
+`settings.customFolder.desc` („Nur bei ‚Eigener Ordner'") in **beiden** Sprachen — die UI sagt es
+selbst, statt es zu erklären.
 
 **`mergeSettings` ist hier load-bearing, nicht Kosmetik:** `main.ts:50` macht heute
 `Object.assign({}, DEFAULT_SETTINGS, data)` — einen Shallow-Merge. Mit `uiCollapsed` und
@@ -114,15 +153,31 @@ Endlosschleife. Der Guard ist kein Nebeneffekt einer anderen Funktion.
 - **Teilen:** `.paperize-export/` wird vor jedem Export geleert (`output.ts:46-61`) — `{version}`
   ist dort immer 1.
 
-## Fehlerbehandlung
+## Fehlerbehandlung — die Anzeige lügt heute
 
-Heute werden ungültige Zahlen-Eingaben (`baseSizePt`, `marginMm`, `headingKeepWithLines`) **still
-verworfen**: Der Wert wird nicht gespeichert, das Feld behält den ungültigen Text, es gibt kein
-Feedback. Das bleibt in diesem Zyklus **unverändert** — es ist ein realer Mangel, aber ein eigener
-Scope (er beträfe alle Zahlenfelder und braucht ein Feedback-Muster, das UI-STANDARD noch nicht
-kennt). Hier notiert, damit er nicht verloren geht.
+`baseSizePt`, `marginMm` und `headingKeepWithLines` sind Textfelder mit einem `if`-Guard im
+`onChange`. Eine Eingabe außerhalb der Grenzen trifft die Bedingung nicht: Es wird **nichts
+gespeichert und nichts gesagt**. Das Feld zeigt weiter den getippten Wert, gespeichert ist der alte
+— die Anzeige behauptet einen Zustand, den es nicht gibt.
 
-Das Dateiname-Schema selbst kann nicht „ungültig" sein: Unbekannte Platzhalter bleiben sichtbar,
+**Fix (aus dem parallelen Spec übernommen): `addSlider().setLimits(min, max, step).setDynamicTooltip()`.**
+Damit wird eine ungültige Eingabe **strukturell unmöglich**, statt still verworfen zu werden, und die
+Grenzen sind sichtbar, statt sich erst zu zeigen, wenn man dagegenläuft. Das ist die
+Obsidian-Best-Practice für begrenzte numerische Werte und der Grund, warum es hierher gehört: Wer
+`display()` ohnehin umbaut, lässt die lügende Anzeige nicht stehen.
+
+| Setting | Limits | Schritt |
+|---|---|---|
+| `baseSizePt` | 6–24 | 0.5 |
+| `marginMm` | 12–50 | 1 |
+| `headingKeepWithLines` | 0–10 | 1 |
+| `lineHeight` (neu) | 1.0–2.0 | 0.05 |
+| `imageMaxWidthPct` (neu) | 25–100 | 5 |
+
+Die 12-mm-Untergrenze bleibt inhaltlich, wie sie ist (unter ~11 mm fällt die Footer-Zeichnung von der
+Seite); der saubere Fix wäre ein Clamp stromaufwärts im Kit und ist ein eigenes Vorhaben.
+
+Das Dateiname-Schema kann nicht „ungültig" sein: Unbekannte Platzhalter bleiben sichtbar,
 Leereingabe fällt auf den Default zurück.
 
 ## Testing
@@ -135,18 +190,43 @@ Alles Neue ist pure und in Node testbar (`environment: 'node'`, vitest 1.6.1, ak
 - `tests/obsidian/output.test.ts` **(erweitert)** — Schema ohne `{version}` überschreibt (ein
   `exists`-Aufruf, kein Hochzählen) · Schema mit `{version}` zählt bis zum freien Pfad · Anhang-Modus
   ignoriert `{version}`.
-- `tests/obsidian/settings.test.ts` **(erweitert)** — fünf Sektionen werden gerendert · `output` ist
-  offen, die übrigen zu · persistierter Zustand schlägt den Default · die drei neuen Kontrollen
-  existieren.
-- `tests/obsidian/i18n.test.ts` — läuft unverändert und erzwingt EN/DE-Key-Gleichheit.
+- `tests/obsidian/settings.test.ts` **(erweitert)** — die pure `SECTIONS`-Tabelle (fünf Sektionen in
+  Render-Reihenfolge · nur `output` offen · Keys eindeutig · jeder Titel in EN **und** DE) ·
+  `createCollapsibleStorage` (schreibt in `uiCollapsed`, ruft `saveSettings`, liefert `undefined` für
+  unbekannte Keys, damit `defaultCollapsed` greift) · `mergeSettings`-Verdrahtung als
+  **Regressionstest** für den Referenz-Bug (ein Zuklappen darf `DEFAULT_SETTINGS` nicht mutieren).
+- `tests/obsidian/i18n.test.ts` — läuft unverändert und erzwingt EN/DE-Key-Gleichheit; deckt den
+  Wegfall von `settings.customFolder.desc` automatisch mit ab.
+
+**Bewusste Test-Grenze:** `display()` selbst wird nicht unit-getestet. Der Obsidian-Mock des Repos
+ist minimal (`Setting` ist eine leere Klasse), und `settings.test.ts` testet auch heute nur
+`settingsToOptions`. Den 676-Zeilen-Mock aus `obsidian-kit/testing` zu vendoren wäre ein eigener
+Zyklus. Getestet ist deshalb, was Bugs birgt und pure ist — Tabelle, Storage-Bridge, Resolver,
+Versions-Schleife; die DOM-Verdrahtung geht in die Geräte-Abnahme. Kit-Interna
+(`collapsibleSection`, `resolveCollapsed`) werden nicht nachgetestet, sie sind Kit-seitig abgedeckt.
 
 Gate vor jedem Commit: `npm run gate` (typecheck + test + check:pure + build).
 
 ## Folge-Notizen (kein Blocker)
 
-- **UI-STANDARD §5 vs. REGISTRY:** §5 schreibt `setHeading()` vor und kennt `collapsibleSection`
-  nicht (nur `REGISTRY.md:76`). Dieser Zyklus folgt vault-rags registriertem Weg. **Vorschlag:** §5
-  danach nachziehen, damit der Standard die gelebte Praxis abbildet.
+- **UI-STANDARD §5 vs. `collapsibleSection`:** §5 verlangt Sektionen über
+  `new Setting(el).setName(…).setHeading()`; `collapsibleSection` baut einen eigenen Header
+  (`<div role="button">` + Titel-Span, „im setHeading-Look" laut Kit-Doc) — er **muss** klickbar
+  sein, was `setHeading()` nicht leistet. Das ist keine Regelverletzung: §5 adressiert *manuell
+  gebaute Heading-Elemente* (`<h3>` per Hand), nicht einen interaktiven Aufklapp-Schalter. Der
+  Kit-Header ist a11y-annotiert und trägt vault-rag produktiv; der Standard (2026-07-05) ist
+  schlicht älter als das Kit-Modul und kennt den Fall nicht. **Vorschlag:** §5 sollte den
+  einklappbaren Sektions-Header als zulässige Form neben `setHeading()` benennen.
+- **CSS-Drift (aus dem parallelen Spec):** Das Kit exportiert `COLLAPSIBLE_CSS` als String,
+  injiziert aber bewusst kein CSS — der Consumer kopiert. vault-rag hat den Snippet handkopiert
+  **ohne jeden Verweis** auf die Kit-Konstante (`vault-rag/styles.css:198ff`); die Konstante driftet
+  damit still von jeder `styles.css`, die sie kopiert hat, und niemand merkt es. Strukturell
+  derselbe Befund wie die offene kuro-Lektion („Artefakt ohne Build-Feedback driftet unbemerkt").
+  **Hier nur markiert:** Kommentar in `styles.css` mit Kit-Version + Herkunft, damit ein Re-Vendor
+  den Menschen erinnert. Die eigentliche Lösung (`sync-kit.sh` schreibt den Block zwischen Marker)
+  betrifft das Kit und zwei Consumer — eigenes Vorhaben.
+- **Release-Einordnung:** Der parallele Spec veranschlagte 0.2.1 (reine UI-Ergonomie plus ein
+  latenter Bug). Mit dem Dateiname-Schema kommt echtes neues Verhalten hinzu → **0.3.0**.
 - **REGISTRY:** `filename.ts` von „Muster-Referenz" auf **Kit-Kandidat** heben (n=2).
 - **`openAfter` ist toter Code:** `output.ts:66` wertet es aus, `main.ts:107` setzt es hart auf
   `false`. Kein Setting dahinter. Nicht Teil dieses Zyklus.

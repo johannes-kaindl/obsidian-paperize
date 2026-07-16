@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- **`check:pure` ist Gate-Teil:** `src/core/**` und `src/vendor/**` dürfen **nie** `from 'obsidian'` importieren. Prüfung: `npm run check:pure`.
+- **`check:pure` ist Gate-Teil:** `src/core/**` und `src/vendor/**` dürfen **nie** `from 'obsidian'` importieren — **Ausnahme ab Task 4:** `src/vendor/kit/obsidian/**` spiegelt die obsidian-gekoppelte Kit-Schicht und darf. Prüfung: `npm run check:pure`.
 - **`src/vendor/kit/**` ist read-only:** Vendored Dateien nicht editieren. Herkunfts-Header Pflicht: `// vendored from obsidian-kit#<tag>, <quelle> — do not hand-edit; re-vendor via tools/sync-kit.sh`.
 - **EN + DE Pflicht:** Jeder neue i18n-Key muss in **beiden** Dicts stehen — `tests/obsidian/i18n.test.ts` erzwingt Key-Set-Gleichheit und schlägt sonst fehl.
 - **Sentence case** für alle UI-Labels (UI-STANDARD §5): „Filename scheme", nicht „Filename Scheme".
@@ -380,7 +380,7 @@ Task 2 und 3 werden zusammen committet, weil der Repo-Zustand dazwischen nicht t
   - `DEFAULT_SETTINGS.filenameTemplate = DEFAULT_FILENAME_TEMPLATE` (`'{title}'`), `DEFAULT_SETTINGS.uiCollapsed = {}`.
   - `export function mergeSettings<T extends object>(defaults: T, raw: unknown): T` in `src/vendor/kit/settings.ts`.
 
-**Kontext für den Implementierer:** `mergeSettings` ist hier **nicht Kosmetik**. `main.ts:50` macht heute `Object.assign({}, DEFAULT_SETTINGS, data)` — mit `uiCollapsed` als verschachteltem Objekt teilt das Ergebnis sonst die Referenz mit `DEFAULT_SETTINGS`, und ein Sektions-Toggle würde die Defaults mutieren. UI-STANDARD §5 schreibt `mergeSettings` verbindlich vor.
+**Kontext für den Implementierer:** `mergeSettings` ist hier **nicht Kosmetik**. `main.ts:50` macht heute `Object.assign({}, DEFAULT_SETTINGS, data)`, `main.ts:36` initialisiert mit `{ ...DEFAULT_SETTINGS }` — beides flache Merges. Solange alle Settings Primitive sind, ist das harmlos; mit `uiCollapsed: {}` kommt der **erste Objekt-Default** hinzu, und ohne gespeicherten Wert teilt `settings.uiCollapsed` die Referenz mit `DEFAULT_SETTINGS.uiCollapsed` — das erste Zuklappen einer Sektion mutiert dann die Defaults des Moduls. Das Feature zieht den Fix nicht aus Gründlichkeit herbei, es braucht ihn. **Beide Stellen** stellen um. UI-STANDARD §5 schreibt `mergeSettings` ohnehin verbindlich vor.
 
 Der Anhang-Pfad hat eine Zirkel-Falle: `attachmentPathFor` braucht den fertigen Dateinamen, der Dateiname bräuchte die Version, die Version kommt aus dem Pfad. Aufgelöst dadurch, dass `{version}` im Anhang-Modus wirkungslos ist (Task 2) — dort wird mit `version: 1` gebaut.
 
@@ -475,6 +475,13 @@ function nowParts(): { date: string; time: string } {
 }
 ```
 
+Die Feld-Initialisierung (`:36`) ersetzen durch:
+```ts
+  // mergeSettings statt Spread: { ...DEFAULT_SETTINGS } teilt die uiCollapsed-Referenz mit
+  // den Defaults, ein Zuklappen wuerde sie mutieren.
+  settings: PaperizeSettings = mergeSettings(DEFAULT_SETTINGS, null);
+```
+
 `loadSettings` (`:48-51`) ersetzen durch:
 ```ts
   async loadSettings() {
@@ -564,13 +571,13 @@ EOF
 ### Task 4: collapsibleSection vendoren + CSS
 
 **Files:**
-- Create: `src/vendor/kit/collapsible.ts`
-- Modify: `styles.css` (aktuell ein 53-Byte-Platzhalter)
+- Create: `src/vendor/kit/obsidian/collapsible.ts`
+- Modify: `package.json` (`check:pure`), `AGENTS.md` (Begründung), `styles.css` (53-Byte-Platzhalter)
 - Test: `tests/vendor-smoke.test.ts` (erweitern)
 
 **Interfaces:**
 - Consumes: nichts.
-- Produces (aus `src/vendor/kit/collapsible.ts`):
+- Produces (aus `src/vendor/kit/obsidian/collapsible.ts`):
   - `export function collapsibleSection(containerEl: HTMLElement, opts: CollapsibleOptions): HTMLElement`
   - `export function resolveCollapsed(key: string | undefined, defaultCollapsed: boolean, storage?: CollapsibleStorage): boolean`
   - `export interface CollapsibleStorage { getCollapsed(key: string): boolean | undefined; setCollapsed(key: string, collapsed: boolean): void }`
@@ -579,13 +586,14 @@ EOF
 
 **Kontext für den Implementierer:** Das Modul ist im Kit bereits getestet (`obsidian-kit/tests/collapsible.test.ts`, inkl. a11y und Toggle-Verhalten) — **nicht nachtesten**. Paperize prüft nur, dass der Import trägt; dafür gibt es `tests/vendor-smoke.test.ts`. Das Kit injiziert bewusst kein CSS, der Consumer übernimmt `COLLAPSIBLE_CSS` in seine `styles.css` (so macht es vault-rag in `styles.css:198-212`).
 
-Dies ist paperize' **erstes** obsidian-gekoppeltes Vendor-Modul (bisher nur `i18n` + `pdf`, beide pure). `check:pure` verbietet `from 'obsidian'` in `src/vendor` — **prüfe das in Step 3**, bevor du weitermachst.
+Dies ist paperize' **erstes obsidian-gekoppeltes Vendor-Modul** (bisher nur `i18n` + `pdf`, beide pure). Damit trägt die implizite Regel „`src/vendor/kit/` == pure" nicht mehr. Der Vendor **spiegelt deshalb die Kit-Struktur**: gekoppelte Module unter `src/vendor/kit/obsidian/`, alles übrige bleibt pure. `check:pure` wird dadurch **geschärft** (`--exclude-dir=obsidian`) statt pro Datei aufgeweicht — jedes künftige gekoppelte Kit-Modul fällt ohne Skript-Änderung an die richtige Stelle.
 
-- [ ] **Step 1: Kit-Datei vendoren**
+- [ ] **Step 1: Kit-Datei in die neue Vendor-Schicht kopieren**
 
 Run:
 ```bash
-cp /Users/Shared/code/obsidian-plugins/obsidian-kit/src/obsidian/collapsible.ts src/vendor/kit/collapsible.ts
+mkdir -p src/vendor/kit/obsidian
+cp /Users/Shared/code/obsidian-plugins/obsidian-kit/src/obsidian/collapsible.ts src/vendor/kit/obsidian/collapsible.ts
 ```
 Dann als **erste Zeile** einfügen:
 ```ts
@@ -596,7 +604,7 @@ Dann als **erste Zeile** einfügen:
 
 An `tests/vendor-smoke.test.ts` anhängen:
 ```ts
-import { COLLAPSIBLE_CSS, resolveCollapsed } from '../src/vendor/kit/collapsible';
+import { COLLAPSIBLE_CSS, resolveCollapsed } from '../src/vendor/kit/obsidian/collapsible';
 
 describe('vendored collapsible', () => {
   it('resolves a stored state over the default', () => {
@@ -620,22 +628,24 @@ Falls `tests/vendor-smoke.test.ts` `describe`/`it`/`expect` noch nicht importier
 
 Run: `npx vitest run tests/vendor-smoke.test.ts && npm run check:pure`
 Expected: Tests PASS.
-**`check:pure` schlägt FEHL** — `collapsible.ts` importiert `setIcon` aus `'obsidian'`, und `check:pure` grept über `src/core src/vendor`. Das ist der erwartete Konflikt.
+**`check:pure` schlägt FEHL** — `collapsible.ts` importiert `setIcon` aus `'obsidian'`, und `check:pure` grept pauschal über `src/core src/vendor`. Das ist der erwartete Konflikt.
 
-- [ ] **Step 4: check:pure auf die pure Vendor-Teilmenge einschränken**
+- [ ] **Step 4: check:pure auf die Vendor-Schichtung schärfen**
 
-Das Skript prüft heute `src/core src/vendor` pauschal. `src/vendor/kit/collapsible.ts` ist ein **obsidian-gekoppeltes** Kit-Modul und darf importieren — die Grenze verläuft nicht bei „vendored", sondern bei „pure".
+Die Grenze verläuft bei **„pure", nicht bei „vendored"**. Statt einer dateispezifischen Ausnahme spiegelt der Vendor die Kit-Struktur, und das Skript benennt die Grenze strukturell.
 
 In `package.json` das `check:pure`-Skript ersetzen:
 ```json
-"check:pure": "! grep -rl \"from 'obsidian'\" src/core src/vendor --exclude=collapsible.ts"
+"check:pure": "! grep -rl \"from 'obsidian'\" src/core src/vendor --exclude-dir=obsidian"
 ```
 Und in `AGENTS.md` unter den Architektur-Abschnitt (bei der `check:pure`-Erwähnung) diesen Absatz ergänzen:
 ```markdown
-**Ausnahme `src/vendor/kit/collapsible.ts`:** Das Kit hat zwei Schichten (`src/pure` und
-`src/obsidian`). `collapsible.ts` stammt aus der obsidian-Schicht und importiert `setIcon` —
-es ist von `check:pure` ausgenommen. Die Grenze verläuft bei „pure", nicht bei „vendored";
-alle übrigen Vendor-Module (`i18n`, `pdf`, `settings`) sind pure und bleiben geprüft.
+**Vendor-Schichtung:** Das Kit hat zwei Schichten (`src/pure` und `src/obsidian`); der Vendor
+spiegelt sie. Obsidian-gekoppelte Kit-Module liegen unter `src/vendor/kit/obsidian/` (derzeit
+`collapsible.ts`, importiert `setIcon`) und sind von `check:pure` ausgenommen — alles übrige im
+Vendor (`i18n`, `pdf`, `settings`) ist pure und bleibt geprüft. Die Grenze verläuft bei „pure",
+nicht bei „vendored": ein neues gekoppeltes Kit-Modul gehört in diesen Ordner, nicht in eine
+weitere Skript-Ausnahme.
 ```
 
 - [ ] **Step 5: CSS übernehmen**
@@ -644,8 +654,12 @@ alle übrigen Vendor-Module (`i18n`, `pdf`, `settings`) sind pure und bleiben ge
 ```css
 /* Paperize — styles */
 
-/* Einklappbare Settings-Sektionen. Uebernommen aus obsidian-kit COLLAPSIBLE_CSS
-   (das Kit injiziert bewusst kein CSS selbst). Nur Theme-Variablen. */
+/* Einklappbare Settings-Sektionen.
+   HERKUNFT: obsidian-kit#0.14.0, COLLAPSIBLE_CSS aus src/obsidian/collapsible.ts.
+   Das Kit exportiert das CSS als String, injiziert es aber bewusst nicht selbst — der
+   Consumer kopiert. Damit driftet die Kit-Konstante still von dieser Kopie: wer
+   collapsible.ts re-vendored, muss diesen Block von Hand mitziehen. Nur Theme-Variablen
+   (UI-STANDARD §3). */
 .okit-collapsible-header {
   display: flex; align-items: center; gap: var(--size-4-2);
   cursor: pointer; padding: var(--size-4-2) 0;
@@ -671,18 +685,23 @@ Expected: typecheck ✓ · **73 Tests grün** (70 + 3) · check:pure ✓ (Ausnah
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/vendor/kit/collapsible.ts styles.css tests/vendor-smoke.test.ts package.json AGENTS.md
+git add src/vendor/kit/obsidian/collapsible.ts styles.css tests/vendor-smoke.test.ts package.json AGENTS.md
 git commit -m "$(cat <<'EOF'
-feat(settings): collapsibleSection aus dem Kit vendored
+feat(settings): collapsibleSection vendored, Vendor bekommt Schichten
 
-Erstes obsidian-gekoppeltes Vendor-Modul in diesem Repo. check:pure
-prueft bisher pauschal src/vendor - die Grenze verlaeuft aber bei
-"pure", nicht bei "vendored": collapsible.ts stammt aus der
-obsidian-Schicht des Kits und importiert setIcon. Ausnahme im Skript
-+ Begruendung in AGENTS.md.
+Erstes obsidian-gekoppeltes Vendor-Modul in diesem Repo. Die implizite
+Regel "src/vendor/kit == pure" traegt damit nicht mehr: collapsible.ts
+stammt aus der obsidian-Schicht des Kits und importiert setIcon.
+
+Der Vendor spiegelt jetzt die Kit-Struktur (src/vendor/kit/obsidian/),
+check:pure wird dadurch geschaerft (--exclude-dir=obsidian) statt pro
+Datei aufgeweicht - die Grenze verlaeuft bei "pure", nicht bei
+"vendored". Begruendung in AGENTS.md.
 
 COLLAPSIBLE_CSS in styles.css uebernommen (das Kit injiziert bewusst
-kein CSS). Toggle/a11y sind Kit-seitig getestet, hier nur Smoke.
+kein CSS) - mit Herkunfts-Kommentar, weil die Konstante sonst still
+von der Kopie driftet. Toggle/a11y sind Kit-seitig getestet, hier nur
+Smoke.
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
 EOF
@@ -699,10 +718,11 @@ EOF
 - Test: `tests/obsidian/settings.test.ts` (erweitern)
 
 **Interfaces:**
-- Consumes: nichts.
+- Consumes: `CollapsibleStorage` aus `src/vendor/kit/obsidian/collapsible.ts` (Task 4); `PaperizeSettings` mit `uiCollapsed` (Task 3).
 - Produces:
   - `export interface SectionDef { key: string; titleKey: string; defaultCollapsed: boolean }`
   - `export const SECTIONS: SectionDef[]` — genau 5 Einträge in Render-Reihenfolge.
+  - `export function createCollapsibleStorage(plugin: { settings: PaperizeSettings; saveSettings: () => Promise<void> }): CollapsibleStorage`
 
 **Kontext für den Implementierer:** Die Sektions-Zuordnung ist **Daten, keine UI** — deshalb eine pure exportierte Tabelle statt einer Konstante innerhalb von `display()`. UI-STANDARD §6 verlangt „UI-Logik als pure `State → ViewModel` neben der View"; hier ist die Tabelle das ViewModel und ohne DOM testbar. `display()` (Task 6) liest daraus Titel und Default-Zustand.
 
@@ -712,7 +732,7 @@ EOF
 
 An `tests/obsidian/settings.test.ts` anhängen:
 ```ts
-import { SECTIONS } from '../../src/obsidian/settings';
+import { SECTIONS, createCollapsibleStorage } from '../../src/obsidian/settings';
 import { EN, DE } from '../../src/i18n/strings';
 
 describe('SECTIONS', () => {
@@ -739,6 +759,43 @@ describe('filename scheme help text', () => {
   it('shows the placeholders literally — t() only interpolates {0}, {1}, …', () => {
     expect(EN['settings.filename.desc']).toContain('{title}');
     expect(DE['settings.filename.desc']).toContain('{version}');
+  });
+});
+
+describe('createCollapsibleStorage', () => {
+  function fakePlugin() {
+    const saves: number[] = [];
+    const plugin = {
+      settings: { ...DEFAULT_SETTINGS, uiCollapsed: {} as Record<string, boolean> },
+      saveSettings: async () => { saves.push(1); },
+    };
+    return { plugin, saves };
+  }
+
+  it('returns undefined for an untouched section so defaultCollapsed wins', () => {
+    const { plugin } = fakePlugin();
+    expect(createCollapsibleStorage(plugin).getCollapsed('output')).toBeUndefined();
+  });
+  it('persists a toggle into uiCollapsed and saves', () => {
+    const { plugin, saves } = fakePlugin();
+    const storage = createCollapsibleStorage(plugin);
+    storage.setCollapsed('page', true);
+    expect(plugin.settings.uiCollapsed.page).toBe(true);
+    expect(storage.getCollapsed('page')).toBe(true);
+    expect(saves.length).toBe(1);
+  });
+  it('reads back a stored false — not just truthy values', () => {
+    const { plugin } = fakePlugin();
+    const storage = createCollapsibleStorage(plugin);
+    storage.setCollapsed('output', false);
+    expect(storage.getCollapsed('output')).toBe(false); // nicht undefined!
+  });
+  it('never mutates DEFAULT_SETTINGS when toggling (the reference bug)', () => {
+    // Regressionstest: mit Object.assign/Spread teilte settings.uiCollapsed die Referenz
+    // mit den Defaults, und das erste Zuklappen mutierte das Modul.
+    const settings = mergeSettings(DEFAULT_SETTINGS, null);
+    createCollapsibleStorage({ settings, saveSettings: async () => {} }).setCollapsed('page', true);
+    expect(DEFAULT_SETTINGS.uiCollapsed).toEqual({});
   });
 });
 ```
@@ -769,6 +826,26 @@ export const SECTIONS: SectionDef[] = [
   { key: 'content', titleKey: 'settings.section.content', defaultCollapsed: true },
   { key: 'pagination', titleKey: 'settings.section.pagination', defaultCollapsed: true },
 ];
+
+/** Persistenz-Bridge zwischen collapsibleSection und den Plugin-Settings. Benannt und
+ *  exportiert (statt Closure in display()), damit sie ohne DOM testbar ist.
+ *  `undefined` für einen unbekannten Key ist load-bearing: nur so greift SectionDef
+ *  .defaultCollapsed — ein `?? false` hier würde jede Sektion aufklappen. */
+export function createCollapsibleStorage(
+  plugin: { settings: PaperizeSettings; saveSettings: () => Promise<void> },
+): CollapsibleStorage {
+  return {
+    getCollapsed: (key) => (key in plugin.settings.uiCollapsed ? plugin.settings.uiCollapsed[key] : undefined),
+    setCollapsed: (key, collapsed) => {
+      plugin.settings.uiCollapsed[key] = collapsed;
+      void plugin.saveSettings();
+    },
+  };
+}
+```
+Dafür oben in `src/obsidian/settings.ts` den Typ-Import ergänzen:
+```ts
+import type { CollapsibleStorage } from '../vendor/kit/obsidian/collapsible';
 ```
 
 - [ ] **Step 4: i18n-Keys ergänzen**
@@ -792,6 +869,7 @@ In `src/i18n/strings.ts`, im **EN**-Dict nach `// settings` (`:20`):
   "settings.imageWidth.name": "Maximum image width (%)",
   "settings.imageWidth.desc": "Share of the text width an image may occupy at most.",
 ```
+Und **entfernen** (EN): die Zeile `"settings.customFolder.desc": "Only used with “Custom folder”.",` — die Zeile rendert ab Task 6 nur noch im passenden Modus, der Hilfetext ist damit gegenstandslos.
 Im **DE**-Dict an gleicher Stelle (`:64`):
 ```ts
   // settings — sections
@@ -811,6 +889,9 @@ Im **DE**-Dict an gleicher Stelle (`:64`):
   "settings.imageWidth.name": "Maximale Bildbreite (%)",
   "settings.imageWidth.desc": "Anteil der Textbreite, den ein Bild höchstens einnehmen darf.",
 ```
+Und **entfernen** (DE): die Zeile `"settings.customFolder.desc": "Nur bei „Eigener Ordner“.",`
+
+**Wichtig:** Der Key muss in **beiden** Dicts verschwinden — `tests/obsidian/i18n.test.ts` prüft Key-Set-Gleichheit und schlägt sonst fehl. Das ist die Absicherung dieser Änderung, nicht ihr Hindernis.
 
 - [ ] **Step 5: Run tests to verify they pass**
 
@@ -848,22 +929,26 @@ EOF
 - Modify: `README.md` und `README.de.md` (Settings-Abschnitt)
 
 **Interfaces:**
-- Consumes: `SECTIONS`, `SectionDef` (Task 5); `collapsibleSection`, `CollapsibleStorage` (Task 4); `filenameTemplate`, `uiCollapsed` in `PaperizeSettings` (Task 3).
+- Consumes: `SECTIONS`, `createCollapsibleStorage` (Task 5); `collapsibleSection` (Task 4); `filenameTemplate`, `uiCollapsed` in `PaperizeSettings` (Task 3); `DEFAULT_FILENAME_TEMPLATE` (Task 1).
 - Produces: nichts für spätere Tasks (letzte Task).
 
-**Kontext für den Implementierer:** `display()` wird nicht unit-getestet — der Obsidian-Mock des Repos ist minimal (`tests/__mocks__/obsidian.ts`: `Setting` ist eine leere Klasse), und `tests/obsidian/settings.test.ts` testet auch heute nur `settingsToOptions`. Einen 676-Zeilen-Mock aus dem Kit zu vendoren wäre ein eigener Zyklus. Getestet ist stattdessen, was Bugs birgt: die pure `SECTIONS`-Tabelle (Task 5) und `resolveCollapsed` (Kit). Die DOM-Verdrahtung geht in die Geräte-Abnahme.
+**Kontext für den Implementierer:** `display()` wird nicht unit-getestet — der Obsidian-Mock des Repos ist minimal (`tests/__mocks__/obsidian.ts`: `Setting` ist eine leere Klasse), und `tests/obsidian/settings.test.ts` testet auch heute nur `settingsToOptions`. Einen 676-Zeilen-Mock aus dem Kit zu vendoren wäre ein eigener Zyklus. Getestet ist stattdessen, was Bugs birgt und pure ist: `SECTIONS` und `createCollapsibleStorage` (Task 5), Resolver und Versions-Schleife (Task 1/2). Die DOM-Verdrahtung geht in die Geräte-Abnahme.
 
-Die Settings-Reihenfolge **innerhalb** einer Sektion bleibt wie gehabt; es wird nichts umbenannt. Neu sind nur drei Kontrollen: Dateiname-Schema (Ausgabe), Zeilenabstand und max. Bildbreite (Typografie).
+**Drei inhaltliche Änderungen über das Umsortieren hinaus:**
 
-**Nicht anfassen:** Die stillschweigend verworfenen Zahlen-Eingaben (ungültiger Wert → kein Feedback) bleiben, wie sie sind. Der Spec nennt das ausdrücklich als eigenen Scope.
+1. **Slider statt lügender Textfelder.** `baseSizePt`, `marginMm` und `headingKeepWithLines` sind heute Textfelder mit `if`-Guard: Ein Wert außerhalb der Grenzen wird **nicht gespeichert und nicht gemeldet** — das Feld zeigt den getippten Wert, gespeichert ist der alte. Die Anzeige lügt. `addSlider().setLimits(min, max, step).setDynamicTooltip()` macht die ungültige Eingabe strukturell unmöglich und zeigt die Grenzen, statt sie erst beim Dagegenlaufen zu offenbaren.
+2. **Bedingte Ordner-Zeile.** `customFolder` rendert nur bei `outputMode === 'customFolder'`; das Dropdown ruft nach `save()` ein `this.display()`. Der erklärende Hilfetext entfällt (Task 5) — die UI sagt es selbst.
+3. **Drei neue Kontrollen:** Dateiname-Schema (Ausgabe), Zeilenabstand und max. Bildbreite (Typografie).
+
+Die 12-mm-Untergrenze bleibt inhaltlich unverändert — sie wandert nur vom `if`-Guard in `setLimits`.
 
 - [ ] **Step 1: Imports ergänzen**
 
 In `src/obsidian/settings.ts`:
 ```ts
-import { collapsibleSection } from '../vendor/kit/collapsible';
-import type { CollapsibleStorage } from '../vendor/kit/collapsible';
+import { collapsibleSection } from '../vendor/kit/obsidian/collapsible';
 ```
+(`CollapsibleStorage` ist bereits aus Task 5 als Typ importiert.)
 
 - [ ] **Step 2: display() ersetzen**
 
@@ -875,12 +960,7 @@ import type { CollapsibleStorage } from '../vendor/kit/collapsible';
     const s = this.plugin.settings;
     const save = () => this.plugin.saveSettings();
 
-    // Auf-/Zu-Zustand landet in den Plugin-Settings; undefined = noch nie geklickt,
-    // dann greift SectionDef.defaultCollapsed.
-    const storage: CollapsibleStorage = {
-      getCollapsed: (key) => (key in s.uiCollapsed ? s.uiCollapsed[key] : undefined),
-      setCollapsed: (key, collapsed) => { s.uiCollapsed[key] = collapsed; void save(); },
-    };
+    const storage: CollapsibleStorage = createCollapsibleStorage(this.plugin);
     const section = (key: string): HTMLElement => {
       const def = SECTIONS.find((d) => d.key === key);
       if (!def) throw new Error(`unknown section: ${key}`);
@@ -896,9 +976,18 @@ import type { CollapsibleStorage } from '../vendor/kit/collapsible';
     const output = section('output');
     new Setting(output).setName(t('settings.output.name')).addDropdown((d) => d.addOptions({
       nextToNote: t('settings.output.nextToNote'), attachmentFolder: t('settings.output.attachmentFolder'), customFolder: t('settings.output.customFolder'), share: t('settings.output.share'),
-    }).setValue(s.outputMode).onChange(async (v) => { s.outputMode = v as OutputMode; await save(); }));
-    new Setting(output).setName(t('settings.customFolder.name')).setDesc(t('settings.customFolder.desc'))
-      .addText((txt) => txt.setValue(s.customFolder).onChange(async (v) => { s.customFolder = v.trim(); await save(); }));
+    }).setValue(s.outputMode).onChange(async (v) => {
+      s.outputMode = v as OutputMode;
+      await save();
+      // Neu zeichnen: die Ordner-Zeile haengt am Modus. display() ist der von Obsidian
+      // vorgesehene Weg fuer bedingte Settings-Zeilen.
+      this.display();
+    }));
+    // Nur im passenden Modus sichtbar — dadurch braucht es keinen Hilfetext „nur bei X".
+    if (s.outputMode === 'customFolder') {
+      new Setting(output).setName(t('settings.customFolder.name'))
+        .addText((txt) => txt.setValue(s.customFolder).onChange(async (v) => { s.customFolder = v.trim(); await save(); }));
+    }
     new Setting(output).setName(t('settings.filename.name')).setDesc(t('settings.filename.desc'))
       .addText((txt) => txt.setPlaceholder(DEFAULT_FILENAME_TEMPLATE).setValue(s.filenameTemplate)
         // Leereingabe → Default, damit nie ein leeres Schema persistiert wird.
@@ -911,16 +1000,18 @@ import type { CollapsibleStorage } from '../vendor/kit/collapsible';
     // Lower bound is 12mm, not the engine's theoretical minimum: below ~11mm bottom margin the
     // fixed-offset footer/page-number draws fall off the page. Proper fix is an engine-side
     // clamp upstream in the kit (src/vendor/kit/pdf/*); this is a plugin-side guard rail.
-    new Setting(page).setName(t('settings.margins.name')).addText((txt) => txt.setValue(String(s.marginMm))
-      .onChange(async (v) => { const n = Number(v); if (n >= 12 && n <= 50) { s.marginMm = n; await save(); } }));
+    new Setting(page).setName(t('settings.margins.name'))
+      .addSlider((sl) => sl.setLimits(12, 50, 1).setValue(s.marginMm).setDynamicTooltip()
+        .onChange(async (v) => { s.marginMm = v; await save(); }));
 
     // — Typografie —
     const type = section('type');
     new Setting(type).setName(t('settings.font.name')).setDesc(t('settings.font.desc'))
       .addDropdown((d) => d.addOptions({ sans: 'Sans (Helvetica)', serif: 'Serif (Times)', mono: 'Mono (Courier)' })
         .setValue(s.fontChoice).onChange(async (v) => { s.fontChoice = v as FontChoice; await save(); }));
-    new Setting(type).setName(t('settings.fontSize.name')).addText((txt) => txt.setValue(String(s.baseSizePt))
-      .onChange(async (v) => { const n = Number(v); if (n >= 6 && n <= 24) { s.baseSizePt = n; await save(); } }));
+    new Setting(type).setName(t('settings.fontSize.name'))
+      .addSlider((sl) => sl.setLimits(6, 24, 0.5).setValue(s.baseSizePt).setDynamicTooltip()
+        .onChange(async (v) => { s.baseSizePt = v; await save(); }));
     new Setting(type).setName(t('settings.lineHeight.name')).setDesc(t('settings.lineHeight.desc'))
       .addSlider((sl) => sl.setLimits(1.0, 2.0, 0.05).setValue(s.lineHeight).setDynamicTooltip()
         .onChange(async (v) => { s.lineHeight = v; await save(); }));
@@ -953,8 +1044,8 @@ import type { CollapsibleStorage } from '../vendor/kit/collapsible';
     new Setting(pagination).setName(t('settings.keepCode.name')).setDesc(t('settings.keepCode.desc'))
       .addToggle((tg) => tg.setValue(s.keepCodeTogether).onChange(async (v) => { s.keepCodeTogether = v; await save(); }));
     new Setting(pagination).setName(t('settings.orphan.name')).setDesc(t('settings.orphan.desc'))
-      .addText((txt) => txt.setValue(String(s.headingKeepWithLines))
-        .onChange(async (v) => { const n = Number(v); if (Number.isInteger(n) && n >= 0 && n <= 10) { s.headingKeepWithLines = n; await save(); } }));
+      .addSlider((sl) => sl.setLimits(0, 10, 1).setValue(s.headingKeepWithLines).setDynamicTooltip()
+        .onChange(async (v) => { s.headingKeepWithLines = v; await save(); }));
   }
 ```
 
@@ -997,11 +1088,20 @@ Kollisionen selbst auf.
 ```bash
 git add src/obsidian/settings.ts README.md README.de.md
 git commit -m "$(cat <<'EOF'
-feat(settings): fuenf einklappbare Sektionen + drei neue Kontrollen
+feat(settings): fuenf einklappbare Sektionen, Slider, neue Kontrollen
 
 display() rendert statt einer flachen 17-Settings-Kette fuenf
 Sektionen; "Ausgabe" startet offen und enthaelt das Ausgabeziel, das
 vorher zwar existierte, aber unauffindbar war.
+
+Schriftgroesse, Raender und Waisenschutz sind jetzt Slider. Als
+Textfeld mit if-Guard verwarfen sie eine Eingabe ausserhalb der
+Grenzen still: nichts gespeichert, nichts gemeldet, Feld zeigt weiter
+den getippten Wert - die Anzeige log. Mit setLimits ist das
+strukturell unmoeglich, und die Grenzen sind sichtbar.
+
+Die Ordner-Zeile rendert nur noch im passenden Modus; ihr Hilfetext
+"nur bei Eigener Ordner" entfaellt dadurch in beiden Sprachen.
 
 Neu bedienbar: Dateiname-Schema (Ausgabe) sowie Zeilenabstand und
 maximale Bildbreite (Typografie) - letztere beiden existierten im
@@ -1043,7 +1143,10 @@ Die DOM-Verdrahtung von `display()` ist bewusst nicht unit-getestet — sie brau
    (aktive LESSONS-Regel).
 2. Settings öffnen → **„Ausgabe" ist offen**, die vier übrigen Sektionen zu.
 3. Eine Sektion auf-/zuklappen, Settings schließen und neu öffnen → Zustand ist erhalten.
-4. Schema auf `{date} {title}` setzen → Export heißt `2026-07-16 Notiz.pdf`.
-5. Schema auf `{title} v{version}` setzen → zweimal exportieren → `Notiz v1.pdf` **und** `Notiz v2.pdf` existieren beide.
-6. Schema leeren → Feld zeigt den Platzhalter `{title}`, Export heißt wie die Notiz.
-7. Zeilenabstand-Slider bewegen → PDF ändert den Zeilenabstand sichtbar.
+4. Ausgabeziel auf „Eigener Ordner" stellen → die Ordner-Zeile **erscheint**; auf „Neben der Notiz" zurück → sie **verschwindet**.
+5. Schema auf `{date} {title}` setzen → Export heißt `2026-07-16 Notiz.pdf`.
+6. Schema auf `{title} v{version}` setzen → zweimal exportieren → `Notiz v1.pdf` **und** `Notiz v2.pdf` existieren beide.
+7. Schema leeren → Feld zeigt den Platzhalter `{title}`, Export heißt wie die Notiz.
+8. Zeilenabstand-Slider bewegen → PDF ändert den Zeilenabstand sichtbar.
+9. Ränder-Slider → lässt sich nicht unter 12 mm ziehen (vorher nahm das Feld jede Zahl an und verwarf sie still).
+10. Tastatur-a11y: Mit Tab auf einen Sektions-Header, Enter/Leertaste klappt auf und zu.
