@@ -1,3 +1,4 @@
+// vendored from obsidian-kit@0.14.0, src/pure/pdf/layout.ts — do not hand-edit
 // src/pure/pdf/layout.ts
 import { mmToPt, pageSizePt, hexToRgb01 } from './geometry';
 import { textWidthPt } from './metrics';

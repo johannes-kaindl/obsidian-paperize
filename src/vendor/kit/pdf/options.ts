@@ -1,3 +1,4 @@
+// vendored from obsidian-kit@0.14.0, src/pure/pdf/options.ts — do not hand-edit
 // src/pure/pdf/options.ts
 export type FontChoice = 'sans' | 'serif' | 'mono';
 
