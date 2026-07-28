@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 vi.mock('obsidian', () => ({ setIcon: () => {} }));
 import { renderPdf, DEFAULT_OPTIONS } from '../src/vendor/kit/pdf';
-import { COLLAPSIBLE_CSS, resolveCollapsed } from '../src/vendor/kit/obsidian/collapsible';
+import { COLLAPSIBLE_CSS, resolveCollapsed } from '../src/vendor/kit-obsidian/collapsible';
 
 describe('vendored kit engine', () => {
   it('renders a trivial PDF', () => {

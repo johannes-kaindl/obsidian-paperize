@@ -4,8 +4,8 @@ import { DEFAULT_OPTIONS } from '../vendor/kit/pdf';
 import type { LayoutOptions, FontChoice } from '../vendor/kit/pdf';
 import { t } from '../vendor/kit/i18n';
 import { DEFAULT_FILENAME_TEMPLATE } from '../core/filename';
-import { collapsibleSection } from '../vendor/kit/obsidian/collapsible';
-import type { CollapsibleStorage } from '../vendor/kit/obsidian/collapsible';
+import { collapsibleSection } from '../vendor/kit-obsidian/collapsible';
+import type { CollapsibleStorage } from '../vendor/kit-obsidian/collapsible';
 
 export type OutputMode = 'nextToNote' | 'attachmentFolder' | 'customFolder' | 'share';
 
