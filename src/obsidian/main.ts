@@ -6,9 +6,9 @@ import { buildFilename } from '../core/filename';
 import { mergeSettings } from '../vendor/kit/settings';
 import { stripFrontmatter, deriveTitle } from '../core/prepare';
 import { buildMetadataEntries } from '../core/frontmatter';
-import { domToIrSync, resolveImages } from '../core/dom-to-ir';
-import { extractCodeBlocks } from '../core/code-blocks';
-import { imageToJpeg } from '../core/image';
+import { domToIrSync, resolveImages } from '../vendor/kit/pdf/dom-to-ir';
+import { extractCodeBlocks, parseCodePlaceholder } from '../vendor/kit/pdf/code-blocks';
+import { imageToJpeg } from '../vendor/kit/pdf/image';
 import { renderPdf } from '../vendor/kit/pdf';
 import { pickLang, setLang, t } from '../vendor/kit/i18n';
 import { registerI18n } from '../i18n/strings';
@@ -89,9 +89,13 @@ export default class PaperizePlugin extends Plugin {
       // registered post-processor, including other plugins' — a code-block processor (e.g.
       // json_viewer on ```json) replaces the <pre> with its own widget DOM, and the original
       // code would be unrecoverable from it.
-      const { markdown, codes } = extractCodeBlocks(body);
+      const { markdown, codes } = extractCodeBlocks(body, 'PAPERIZECODE');
       await MarkdownRenderer.render(this.app, markdown, holder, file.path, comp);
-      const extracted = domToIrSync(holder, { pageBreakMarker: this.settings.pageBreakMarker, codes });
+      const extracted = domToIrSync(holder, {
+        pageBreakMarker: this.settings.pageBreakMarker,
+        codes,
+        resolvePlaceholder: (t) => parseCodePlaceholder(t, 'PAPERIZECODE'),
+      });
       unsupportedCount = extracted.unsupportedCount;
       resolved = await resolveImages(extracted.blocks, extracted.imageEls, (src) => this.decodeImage(src, file));
     } finally {
@@ -157,7 +161,7 @@ export default class PaperizePlugin extends Plugin {
         const dest = this.app.metadataCache.getFirstLinkpathDest(decodeURIComponent(src.replace(/^\.\//, '')), file.path);
         if (dest) url = this.app.vault.getResourcePath(dest);
       }
-      return await imageToJpeg(url, 1600);
+      return await imageToJpeg(url, () => createEl('canvas'), 1600);
     } catch (e) { console.error('Paperize: image decode failed', e); return null; }
   }
 }

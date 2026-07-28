@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 vi.mock('obsidian', () => ({ setIcon: () => {} }));
 import { renderPdf, DEFAULT_OPTIONS } from '../src/vendor/kit/pdf';
 import { COLLAPSIBLE_CSS, resolveCollapsed } from '../src/vendor/kit-obsidian/collapsible';
+import { extractCodeBlocks, parseCodePlaceholder } from '../src/vendor/kit/pdf/code-blocks';
 
 describe('vendored kit engine', () => {
   it('renders a trivial PDF', () => {
@@ -26,5 +27,21 @@ describe('vendored collapsible', () => {
     expect(COLLAPSIBLE_CSS).toContain('.okit-collapsible-body.is-collapsed');
     expect(COLLAPSIBLE_CSS).not.toMatch(/#[0-9a-f]{3,6}\b/i); // keine Farb-Literale
     expect(COLLAPSIBLE_CSS).not.toContain('!important');
+  });
+});
+
+// Placeholder-Verhalten ist Kit-seitig umfassend getestet — hier nur, dass der Import traegt
+// und die Paperize-Kontextmarke ('PAPERIZECODE') korrekt angewendet wird.
+describe('vendored code-block extraction', () => {
+  it('extracts code blocks with placeholder markers', () => {
+    const markdown = 'text\n```js\ncode\n```\nmore';
+    const { markdown: out, codes } = extractCodeBlocks(markdown, 'PAPERIZECODE');
+    expect(codes.length).toBe(1);
+    expect(out).toContain('PAPERIZECODE0');
+  });
+  it('parses code placeholders with the Paperize marker', () => {
+    const placeholder = 'PAPERIZECODE0';
+    const idx = parseCodePlaceholder(placeholder, 'PAPERIZECODE');
+    expect(idx).toBe(0);
   });
 });
