@@ -2,6 +2,7 @@
 // @vitest-environment happy-dom
 import { describe, it, expect } from 'vitest';
 import { domToIrSync, resolveImages } from '../../src/core/dom-to-ir';
+import { codePlaceholder } from '../../src/core/code-blocks';
 
 function dom(html: string): HTMLElement {
   const d = document.createElement('div');
@@ -39,6 +40,25 @@ describe('domToIrSync', () => {
   it('maps a fenced code block with language', () => {
     const { blocks } = domToIrSync(dom('<pre><code class="language-js">x=1</code></pre>'));
     expect(blocks[0]).toMatchObject({ type: 'code', lang: 'js' });
+  });
+  it('turns a placeholder paragraph back into its extracted code block', () => {
+    const { blocks } = domToIrSync(dom(`<p>${codePlaceholder(0)}</p>`), {
+      codes: [{ lang: 'json', text: '{"a":1}' }],
+    });
+    expect(blocks).toEqual([{ type: 'code', lang: 'json', text: '{"a":1}' }]);
+  });
+  it('resolves placeholders by index, not by order of appearance', () => {
+    const { blocks } = domToIrSync(dom(`<p>${codePlaceholder(1)}</p><p>${codePlaceholder(0)}</p>`), {
+      codes: [{ lang: 'js', text: 'first' }, { lang: 'py', text: 'second' }],
+    });
+    expect(blocks).toEqual([
+      { type: 'code', lang: 'py', text: 'second' },
+      { type: 'code', lang: 'js', text: 'first' },
+    ]);
+  });
+  it('leaves a placeholder-looking paragraph alone when no such code exists', () => {
+    const { blocks } = domToIrSync(dom(`<p>${codePlaceholder(7)}</p>`), { codes: [] });
+    expect(blocks[0].type).toBe('paragraph');
   });
   it('maps a table with header and rows', () => {
     const { blocks } = domToIrSync(dom('<table><thead><tr><th>A</th></tr></thead><tbody><tr><td>a1</td></tr></tbody></table>'));

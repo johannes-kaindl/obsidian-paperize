@@ -7,6 +7,7 @@ import { mergeSettings } from '../vendor/kit/settings';
 import { stripFrontmatter, deriveTitle } from '../core/prepare';
 import { buildMetadataEntries } from '../core/frontmatter';
 import { domToIrSync, resolveImages } from '../core/dom-to-ir';
+import { extractCodeBlocks } from '../core/code-blocks';
 import { imageToJpeg } from '../core/image';
 import { renderPdf } from '../vendor/kit/pdf';
 import { pickLang, setLang, t } from '../vendor/kit/i18n';
@@ -84,8 +85,13 @@ export default class PaperizePlugin extends Plugin {
     let unsupportedCount: number;
     let resolved: Awaited<ReturnType<typeof resolveImages>>;
     try {
-      await MarkdownRenderer.render(this.app, body, holder, file.path, comp);
-      const extracted = domToIrSync(holder, { pageBreakMarker: this.settings.pageBreakMarker });
+      // Pull fenced code out of the Markdown BEFORE rendering. MarkdownRenderer runs every
+      // registered post-processor, including other plugins' — a code-block processor (e.g.
+      // json_viewer on ```json) replaces the <pre> with its own widget DOM, and the original
+      // code would be unrecoverable from it.
+      const { markdown, codes } = extractCodeBlocks(body);
+      await MarkdownRenderer.render(this.app, markdown, holder, file.path, comp);
+      const extracted = domToIrSync(holder, { pageBreakMarker: this.settings.pageBreakMarker, codes });
       unsupportedCount = extracted.unsupportedCount;
       resolved = await resolveImages(extracted.blocks, extracted.imageEls, (src) => this.decodeImage(src, file));
     } finally {
