@@ -1,7 +1,9 @@
+// @vitest-environment happy-dom
 import { describe, it, expect, vi } from 'vitest';
 vi.mock('obsidian', () => ({ setIcon: () => {} }));
 import { renderPdf, DEFAULT_OPTIONS } from '../src/vendor/kit/pdf';
 import { COLLAPSIBLE_CSS, resolveCollapsed } from '../src/vendor/kit-obsidian/collapsible';
+import { domToIrSync } from '../src/vendor/kit/pdf/dom-to-ir';
 import { extractCodeBlocks, parseCodePlaceholder } from '../src/vendor/kit/pdf/code-blocks';
 
 describe('vendored kit engine', () => {
@@ -43,5 +45,18 @@ describe('vendored code-block extraction', () => {
     const placeholder = 'PAPERIZECODE0';
     const idx = parseCodePlaceholder(placeholder, 'PAPERIZECODE');
     expect(idx).toBe(0);
+  });
+});
+
+describe('vendored dom-to-ir + code-blocks', () => {
+  it('extracts a fence and resolves it back to a code block', () => {
+    const { markdown, codes } = extractCodeBlocks('```js\nx=1\n```', 'PAPERIZECODE');
+    const div = document.createElement('div');
+    div.innerHTML = `<p>${markdown}</p>`;
+    const { blocks } = domToIrSync(div, {
+      codes,
+      resolvePlaceholder: (t) => parseCodePlaceholder(t, 'PAPERIZECODE'),
+    });
+    expect(blocks).toEqual([{ type: 'code', lang: 'js', text: 'x=1' }]);
   });
 });

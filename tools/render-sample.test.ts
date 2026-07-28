@@ -5,7 +5,7 @@
 // Run on demand: npx vitest run tools/render-sample.test.ts
 import { describe, it, expect } from 'vitest';
 import { writeFileSync } from 'node:fs';
-import { domToIrSync, resolveImages } from '../src/core/dom-to-ir';
+import { domToIrSync, resolveImages } from '../src/vendor/kit/pdf/dom-to-ir';
 import { renderPdf, DEFAULT_OPTIONS, layoutDocument } from '../src/vendor/kit/pdf';
 
 // A valid 1×1 JPEG so the image block embeds a real DCTDecode XObject.
