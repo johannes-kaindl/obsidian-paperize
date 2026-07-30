@@ -38,7 +38,7 @@ iPad.
 ## Quick start
 
 Repository: [github.com/johannes-kaindl/obsidian-paperize](https://github.com/johannes-kaindl/obsidian-paperize)
-(source mirror: [codeberg.org/jkaindl/obsidian-paperize](https://codeberg.org/jkaindl/obsidian-paperize))
+(source mirror: [git.jkaindl.de/jkaindl/obsidian-paperize](https://git.jkaindl.de/jkaindl/obsidian-paperize))
 
 ### Install from Obsidian (once listed in Community Plugins)
 

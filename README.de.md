@@ -39,7 +39,7 @@ Desktop, iPhone und iPad.
 ## Schnellstart
 
 Repository: [github.com/johannes-kaindl/obsidian-paperize](https://github.com/johannes-kaindl/obsidian-paperize)
-(Quell-Mirror: [codeberg.org/jkaindl/obsidian-paperize](https://codeberg.org/jkaindl/obsidian-paperize))
+(Quell-Mirror: [git.jkaindl.de/jkaindl/obsidian-paperize](https://git.jkaindl.de/jkaindl/obsidian-paperize))
 
 ### Installation aus Obsidian (sobald im Community-Verzeichnis gelistet)
 

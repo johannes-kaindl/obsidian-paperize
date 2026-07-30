@@ -24,11 +24,11 @@
   "license": "AGPL-3.0-or-later",
   "repository": {
     "type": "git",
-    "url": "git+https://codeberg.org/jkaindl/obsidian-paperize.git"
+    "url": "git+https://git.jkaindl.de/jkaindl/obsidian-paperize.git"
   },
-  "homepage": "https://codeberg.org/jkaindl/obsidian-paperize",
+  "homepage": "https://git.jkaindl.de/jkaindl/obsidian-paperize",
   "bugs": {
-    "url": "https://codeberg.org/jkaindl/obsidian-paperize/issues"
+    "url": "https://git.jkaindl.de/jkaindl/obsidian-paperize/issues"
   },
   "devDependencies": {
     "@types/node": "^20",

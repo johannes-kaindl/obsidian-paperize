@@ -105,20 +105,20 @@ also kein committeter Quelltext, sondern der reproduzierbar erzeugte Output. Det
 Einordnung: [`SECURITY.md`](https://github.com/johannes-kaindl/obsidian-paperize/blob/main/SECURITY.md).
 
 - `scripts/release.mjs` (`npm run release -- <version>`) bündelt Versions-Bump (siehe
-  `scripts/version-bump.mjs`), CHANGELOG-Rewrite, Commit, Tag, Push nach Codeberg
-  (`origin`), lokalen Build, Codeberg-Release und Dual-Push-Mirror nach `github` (Tag
+  `scripts/version-bump.mjs`), CHANGELOG-Rewrite, Commit, Tag, Push nach Forgejo
+  (`origin`), lokalen Build, Forgejo-Release und Dual-Push-Mirror nach `github` (Tag
   zuerst, dann Branch) — Letzteres non-fatal: schlägt der GitHub-Push fehl, bleibt der
-  Codeberg-Release gültig, der GitHub-Tag-Push muss manuell nachgeholt werden.
-- `origin` bleibt Codeberg; nur der Tag muss zusätzlich auf den `github`-Remote, damit
+  Forgejo-Release gültig, der GitHub-Tag-Push muss manuell nachgeholt werden.
+- `origin` bleibt Forgejo; nur der Tag muss zusätzlich auf den `github`-Remote, damit
   der Workflow feuert. Voraussetzung: Actions sind im Mirror-Repo aktiviert und
-  `~/.codeberg-token` existiert lokal für den Codeberg-Release-Schritt.
+  `~/.forgejo-token` existiert lokal für den Forgejo-Release-Schritt.
 - **Nicht mehr** manuell `gh release create` aufrufen: Die Attestation kann nur der
   Actions-Lauf signieren (OIDC-Identität = Workflow, nicht Laptop).
 
 ## Conventions
 
 - Conventional Commits; SemVer-Tags **ohne** v-Präfix; nur berührte Dateien stagen.
-- Remotes: Codeberg `origin`, GitHub-Mirror für Obsidian-Verzeichnis/BRAT.
+- Remotes: Forgejo `origin`, GitHub-Mirror für Obsidian-Verzeichnis/BRAT.
 - Doku ist zweisprachig: Änderungen immer in **beiden** Sprachen pflegen
   (EN `*.md` + DE `*.de.md`), sonst driften die Versionen auseinander.
 - **Absolute GitHub-URLs** für Bilder/Datei-Links in READMEs: Das Community-Directory
