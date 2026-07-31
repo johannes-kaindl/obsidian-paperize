@@ -1,7 +1,7 @@
 # AGENTS.md — obsidian-paperize
 
 > **Workspace-Standards:** Die verbindliche Leitkonvention steht in
-> `../_docs/CONVENTIONS.md` (Modell comply-or-explain). Begründete Abweichungen
+> `../../_docs/CONVENTIONS.md` (Modell comply-or-explain). Begründete Abweichungen
 > stehen unten unter „Abweichungen von der Leitkonvention".
 
 Conventions for AI agents (Claude Code, Codex, …) working on this repository.
@@ -27,7 +27,7 @@ Abbruch. Desktop **und** iOS/iPad (`isDesktopOnly: false`) erzeugen echte Vektor
   `obsidian-kit@0.8.0` (Layout, Metrics, Writer, IR) — Obsidian-frei, per
   `tools/`-Sync-Skript aus dem Kit übernommen, nicht von Hand editiert. Änderungen an der
   Engine gehören stromaufwärts ins Kit, nicht hier.
-- **DOM→IR-Seam:** `src/core/dom-to-ir.ts` wandelt Obsidians gerenderten Markdown-DOM
+- **DOM→IR-Seam:** `src/vendor/kit/pdf/dom-to-ir.ts` wandelt Obsidians gerenderten Markdown-DOM
   (`MarkdownRenderer.render`) in die pure Block/Inline-IR des Kits um — der einzige Ort,
   an dem Obsidian-DOM und pure Engine sich berühren. Nicht unterstützte Elemente werden zu
   `{ type: 'unsupported' }`-Blöcken (Degradation, kein Abbruch); der Zähler treibt die
@@ -39,11 +39,13 @@ Abbruch. Desktop **und** iOS/iPad (`isDesktopOnly: false`) erzeugen echte Vektor
 - Reine Funktionen (`src/core/*`, `src/vendor/kit/*`) sind frei von Obsidian-Imports und
   damit in Node/vitest testbar; `npm run check:pure` erzwingt das.
 - **Vendor-Schichtung:** Das Kit hat zwei Schichten (`src/pure` und `src/obsidian`); der Vendor
-  spiegelt sie. Obsidian-gekoppelte Kit-Module liegen unter `src/vendor/kit/obsidian/` (derzeit
-  `collapsible.ts`, importiert `setIcon`) und sind von `check:pure` ausgenommen
-  (`--exclude-dir=obsidian`); alles übrige im Vendor (`i18n`, `pdf`, `settings`) ist pure und
-  bleibt geprüft. Die Grenze verläuft bei **„pure", nicht bei „vendored"**: Ein neues
-  gekoppeltes Kit-Modul gehört in diesen Ordner, nicht in eine weitere Skript-Ausnahme.
+  spiegelt sie. Obsidian-gekoppelte Kit-Module liegen real unter `src/vendor/kit-obsidian/`
+  (derzeit `collapsible.ts`, importiert `setIcon`). **Achtung:** Eine `--exclude-dir`-Ausnahme
+  für diesen Ordner steht derzeit **nicht** im `check:pure`-Script — der Ordner wird mitgegrept
+  und rutscht nur wegen der Quote-Stil-Blindheit des Musters durch (siehe `check:pure`-Gotcha
+  unten). Alles übrige im Vendor (`i18n`, `pdf`, `settings`) ist pure und bleibt geprüft. Die
+  Grenze verläuft bei **„pure", nicht bei „vendored"**: Ein neues gekoppeltes Kit-Modul gehört
+  in diesen Ordner, nicht in eine weitere Skript-Ausnahme.
 - **Settings-Tab — Sektionen sind Daten, nicht Layout:** `SECTIONS` in `src/obsidian/settings.ts`
   ist eine pure Tabelle (Key · i18n-Titel · Startzustand), `display()` liest nur daraus. Grund:
   Der Obsidian-Mock des Repos ist minimal (`Setting` ist eine leere Klasse), `display()` selbst
@@ -70,12 +72,14 @@ Abbruch. Desktop **und** iOS/iPad (`isDesktopOnly: false`) erzeugen echte Vektor
   interne Doku-Referenzen), der in einem öffentlichen Repo niemandem nützt. Das Repo behält die
   Design-Essenz — diese Gotchas plus `CHANGELOG.md`. **Keine absoluten Pfade außerhalb des Repos**
   in committete Dateien; im Zweifel Platzhalter (`<code-workspace>/…`, `$VAULT/…`).
-- **`check:pure`-Gotcha (2026-07-16):** Das Muster war `from 'obsidian'` — nur **einfache**
-  Anführungszeichen. Das Kit schreibt `from "obsidian"` (doppelte), Paperize einfache; das Gate
-  war damit **blind für genau den Fremdcode, den es prüfen soll**. Das Muster lautet jetzt
-  `from .obsidian.` und fängt beide Stile. Wer es anfasst: gegen einen echten Verstoß in beiden
-  Quote-Stilen verifizieren, nicht nur den Grün-Lauf ansehen — ein Gate, das nie rot wird, ist
-  kein Gate.
+- **`check:pure`-Gotcha (Regression, Stand 2026-07-31):** Das Muster im Script fängt derzeit
+  **nur einfache** Anführungszeichen (`from 'obsidian'`). Das Kit schreibt `from "obsidian"`
+  (doppelte), Paperize einfache — der doppelt-gequotete Import in
+  `src/vendor/kit-obsidian/collapsible.ts` wird **nicht** gefangen; das Gate ist damit blind
+  für genau den Fremdcode, den es prüfen soll. **Fix offen:** Muster von epub-exporter
+  übernehmen (`grep -rlE "from [\"']obsidian[\"']"`). Wer es anfasst: gegen einen echten
+  Verstoß in beiden Quote-Stilen verifizieren, nicht nur den Grün-Lauf ansehen — ein Gate,
+  das nie rot wird, ist kein Gate.
 - **Core-14-Schriften only:** Der Font-Layer nutzt ausschließlich die Adobe-Core-14-
   Standardschriften (Helvetica/Times/Courier-Familien) — keine eingebetteten Schriften,
   keine Custom-Fonts. Hält die PDFs klein und dependency-frei; bewusste Grenze, nicht
@@ -123,7 +127,7 @@ Einordnung: [`SECURITY.md`](https://github.com/johannes-kaindl/obsidian-paperize
   (EN `*.md` + DE `*.de.md`), sonst driften die Versionen auseinander.
 - **Absolute GitHub-URLs** für Bilder/Datei-Links in READMEs: Das Community-Directory
   löst relative Pfade nicht auf (Carry-over-Gotcha aus Letterhead).
-- Workspace-weite Standards: `../_docs/CONVENTIONS.md`.
+- Workspace-weite Standards: `../../_docs/CONVENTIONS.md`.
 
 ## Gotchas
 
