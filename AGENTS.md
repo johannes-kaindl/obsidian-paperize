@@ -40,10 +40,9 @@ Abbruch. Desktop **und** iOS/iPad (`isDesktopOnly: false`) erzeugen echte Vektor
   damit in Node/vitest testbar; `npm run check:pure` erzwingt das.
 - **Vendor-Schichtung:** Das Kit hat zwei Schichten (`src/pure` und `src/obsidian`); der Vendor
   spiegelt sie. Obsidian-gekoppelte Kit-Module liegen real unter `src/vendor/kit-obsidian/`
-  (derzeit `collapsible.ts`, importiert `setIcon`). **Achtung:** Eine `--exclude-dir`-Ausnahme
-  für diesen Ordner steht derzeit **nicht** im `check:pure`-Script — der Ordner wird mitgegrept
-  und rutscht nur wegen der Quote-Stil-Blindheit des Musters durch (siehe `check:pure`-Gotcha
-  unten). Alles übrige im Vendor (`i18n`, `pdf`, `settings`) ist pure und bleibt geprüft. Die
+  (derzeit `collapsible.ts`, importiert `setIcon`). Dieser Ordner steht als einziger Eintrag in
+  `EXCLUDED` in `scripts/check-pure.mjs` — die Ausnahme ist damit benannt statt implizit.
+  Alles übrige im Vendor (`i18n`, `pdf`, `settings`) ist pure und bleibt geprüft. Die
   Grenze verläuft bei **„pure", nicht bei „vendored"**: Ein neues gekoppeltes Kit-Modul gehört
   in diesen Ordner, nicht in eine weitere Skript-Ausnahme.
 - **Settings-Tab — Sektionen sind Daten, nicht Layout:** `SECTIONS` in `src/obsidian/settings.ts`
@@ -72,14 +71,15 @@ Abbruch. Desktop **und** iOS/iPad (`isDesktopOnly: false`) erzeugen echte Vektor
   interne Doku-Referenzen), der in einem öffentlichen Repo niemandem nützt. Das Repo behält die
   Design-Essenz — diese Gotchas plus `CHANGELOG.md`. **Keine absoluten Pfade außerhalb des Repos**
   in committete Dateien; im Zweifel Platzhalter (`<code-workspace>/…`, `$VAULT/…`).
-- **`check:pure`-Gotcha (Regression, Stand 2026-07-31):** Das Muster im Script fängt derzeit
-  **nur einfache** Anführungszeichen (`from 'obsidian'`). Das Kit schreibt `from "obsidian"`
-  (doppelte), Paperize einfache — der doppelt-gequotete Import in
-  `src/vendor/kit-obsidian/collapsible.ts` wird **nicht** gefangen; das Gate ist damit blind
-  für genau den Fremdcode, den es prüfen soll. **Fix offen:** Muster von epub-exporter
-  übernehmen (`grep -rlE "from [\"']obsidian[\"']"`). Wer es anfasst: gegen einen echten
-  Verstoß in beiden Quote-Stilen verifizieren, nicht nur den Grün-Lauf ansehen — ein Gate,
-  das nie rot wird, ist kein Gate.
+- **`check:pure` ist ein Script, kein grep-Einzeiler** (`scripts/check-pure.mjs`, seit
+  2026-08-03): Der frühere Einzeiler matchte nur `from 'obsidian'` — einfache Anführungszeichen
+  sind der *Paperize*-Stil, das vendored Kit schreibt doppelte. Das Gate war damit blind für
+  genau den Fremdcode, den es prüfen soll, und hätte nie einen vendored Obsidian-Import
+  gemeldet. **Regel:** Ein Gate gegen *fremden* Code darf nicht auf *eigene* Konventionen
+  matchen. Das Script fängt beide Quote-Stile, `import()` und Subpath-Importe, nennt die
+  Fundstellen und trägt die `kit-obsidian`-Ausnahme explizit. Wer es anfasst: gegen einen
+  echten Verstoß in **beiden** Quote-Stilen laufen lassen und den Exit-Code prüfen, nicht nur
+  den Grün-Lauf ansehen — ein Gate, das nie rot wird, ist kein Gate.
 - **Core-14-Schriften only:** Der Font-Layer nutzt ausschließlich die Adobe-Core-14-
   Standardschriften (Helvetica/Times/Courier-Familien) — keine eingebetteten Schriften,
   keine Custom-Fonts. Hält die PDFs klein und dependency-frei; bewusste Grenze, nicht
