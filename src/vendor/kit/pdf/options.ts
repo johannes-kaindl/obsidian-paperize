@@ -1,4 +1,4 @@
-// vendored from obsidian-kit@0.14.0, src/pure/pdf/options.ts — do not hand-edit
+// vendored from obsidian-kit@0.22.0, src/pure/pdf/options.ts — do not hand-edit; re-vendor via tools/sync-kit.sh
 // src/pure/pdf/options.ts
 export type FontChoice = 'sans' | 'serif' | 'mono';
 
@@ -20,7 +20,7 @@ export interface PaginationOptions {
 }
 
 export interface LayoutOptions {
-  page: { size: 'A4' | 'Letter'; marginMm: Margins };
+  page: { size: 'A4' | 'Letter'; marginMm: Margins; startY?: number; followTopMm?: number };
   fonts: { body: FontChoice; baseSizePt: number; lineHeight: number; headingScale: number };
   colors: { text: string; muted: string; rule: string; codeBg: string; tableBorder: string };
   frame: { title: string | null; pageNumbers: boolean; runningHeaderFooter: RunningHF | null };

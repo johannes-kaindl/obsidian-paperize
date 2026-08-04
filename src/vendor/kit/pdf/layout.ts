@@ -1,4 +1,4 @@
-// vendored from obsidian-kit@0.14.0, src/pure/pdf/layout.ts — do not hand-edit
+// vendored from obsidian-kit@0.22.0, src/pure/pdf/layout.ts — do not hand-edit; re-vendor via tools/sync-kit.sh
 // src/pure/pdf/layout.ts
 import { mmToPt, pageSizePt, hexToRgb01 } from './geometry';
 import { textWidthPt } from './metrics';
@@ -12,7 +12,7 @@ export type DrawOp =
   | { page: number; kind: 'rect'; x: number; y: number; w: number; h: number; rgb: [number, number, number] }
   | { page: number; kind: 'image'; data: Uint8Array; wPx: number; hPx: number; x: number; y: number; w: number; h: number };
 
-export interface LayoutResult { pageCount: number; ops: DrawOp[] }
+export interface LayoutResult { pageCount: number; ops: DrawOp[]; endPage: number; endY: number }
 
 const ASCENT = 0.78;
 
@@ -29,9 +29,11 @@ export function layoutDocument(doc: Block[], options: LayoutOptions): LayoutResu
   const contentWidthPt = rightEdge - leftPt;
   const topYFirst = PAGE_H - mmToPt(m.top);
   const bottomY = mmToPt(m.bottom);
+  const followTop = options.page.followTopMm != null ? PAGE_H - mmToPt(options.page.followTopMm) : topYFirst;
 
   const F = fontSet(options.fonts.body);
   const baseSize = options.fonts.baseSizePt;
+  const freshBaseline = () => followTop - ASCENT * baseSize; // top baseline on pages ≥1
   const lineH = options.fonts.lineHeight;
   const hScale = options.fonts.headingScale;
   const TEXT = hexToRgb01(options.colors.text);
@@ -42,7 +44,7 @@ export function layoutDocument(doc: Block[], options: LayoutOptions): LayoutResu
 
   const ops: DrawOp[] = [];
   let page = 0;
-  let y = topYFirst - ASCENT * baseSize; // baseline of the first line
+  let y = options.page.startY != null ? options.page.startY : topYFirst - ASCENT * baseSize; // baseline of the first line
 
   const T = (x: number, yy: number, str: string, fontKey: string, sz: number, rgb: [number, number, number]) => {
     if (str !== '' && str != null) ops.push({ page, kind: 'text', x, y: yy, str: String(str), fontKey, sizePt: sz, rgb });
@@ -50,23 +52,23 @@ export function layoutDocument(doc: Block[], options: LayoutOptions): LayoutResu
 
   // Move the cursor down by h pt; page-break if it would cross the bottom margin.
   const advance = (h: number): number => {
-    if (y - h < bottomY) { page += 1; y = topYFirst - ASCENT * baseSize; }
+    if (y - h < bottomY) { page += 1; y = freshBaseline(); }
     const yy = y; y -= h; return yy;
   };
 
   const PAG = options.pagination;
 
   // Usable content height of a single page.
-  const pageContentHeight = topYFirst - bottomY;
+  const pageContentHeight = followTop - bottomY;
   // Real usable height of a FRESH page: after a break the cursor resets to
-  // `topYFirst - ASCENT*baseSize`, so a block taller than this can't be kept whole
+  // `followTop - ASCENT*baseSize`, so a block taller than this can't be kept whole
   // even on its own page. Using this (not pageContentHeight) as the break-before
   // threshold avoids a needless extra break for blocks in the ~ASCENT*baseSize window.
   const freshPageCapacity = pageContentHeight - ASCENT * baseSize;
   // Would a block of height h fit at the current cursor position?
   const fitsHere = (h: number): boolean => (y - h) >= bottomY;
   // Force a page break: advance to the top of a fresh page.
-  const forceBreak = () => { page += 1; y = topYFirst - ASCENT * baseSize; };
+  const forceBreak = () => { page += 1; y = freshBaseline(); };
   // Break before the current block if it doesn't fit here but does fit on a fresh page
   // (a block taller than a fresh page must split instead — leave it alone).
   const breakBeforeIfNeeded = (h: number) => {
@@ -169,12 +171,33 @@ export function layoutDocument(doc: Block[], options: LayoutOptions): LayoutResu
     return natural.map((w) => (w / sum) * contentWidthPt);
   };
 
+  // Placed size of an image — single source for the renderer and the orphan lookahead, so the
+  // two cannot drift apart. Returns both dimensions rather than deriving width from height
+  // afterwards: a degenerate image (hPx 0) has ratio 0, and dividing by it yields NaN.
+  const imageSizePt = (b: Extract<Block, { type: 'image' }>): { wPt: number; hPt: number } => {
+    const maxW = contentWidthPt * (options.image.maxWidthPct / 100);
+    const ratio = b.hPx / Math.max(1, b.wPx);
+    let wPt = Math.min(maxW, mmToPt(b.wPx * 0.264583)); // px→mm at 96dpi as a natural cap
+    if (wPt < mmToPt(10)) wPt = maxW; // tiny natural size → fill available width
+    let hPt = wPt * ratio;
+    const maxH = (topYFirst - bottomY) * 0.9;
+    if (hPt > maxH) { hPt = maxH; wPt = hPt / ratio; }
+    return { wPt, hPt };
+  };
+
   // Height of the first n wrapped lines of a block — a lookahead heuristic used to decide
   // whether a heading would be orphaned at the bottom of a page. For text-bearing blocks
-  // (paragraph/heading) this wraps exactly like the renderer does; other block types use a
-  // simple `n * baseSize*lineH` proxy since splitting them mid-block is a separate concern.
+  // (paragraph/heading) this wraps exactly like the renderer does.
+  //
+  // An image is **atomic**: it never splits, so "the first n lines of it" is meaningless. Using
+  // the line proxy here stranded the heading — it fit alongside two notional text lines, then
+  // the whole image moved to the next page and left the heading behind above a third of a blank
+  // page (Paperize acceptance run, 2026-08-04). Its full height is the only honest measure.
+  // Tables and code blocks keep the proxy on purpose: they *can* split (with header repetition),
+  // so a partial fit is a real fit.
   const measureFirstLines = (b: Block, n: number): number => {
     if (n <= 0) return 0;
+    if (b.type === 'image') return imageSizePt(b).hPt + baseSize * 0.6;
     if (b.type === 'paragraph' || b.type === 'heading') {
       const sz = b.type === 'heading' ? baseSize * (HEADING_MUL[b.level] || 1) * hScale : baseSize;
       const runs: WrapRun[] = (b.inlines.length ? b.inlines : [{ text: '' }]).map((r) => ({ text: r.text, fontKey: runFont(r) }));
@@ -338,13 +361,7 @@ export function layoutDocument(doc: Block[], options: LayoutOptions): LayoutResu
         emitInlines([{ text: b.text }], baseSize, () => F.italic, MUTED, paraGap, 0);
         break;
       case 'image': {
-        const maxW = contentWidthPt * (options.image.maxWidthPct / 100);
-        const ratio = b.hPx / Math.max(1, b.wPx);
-        let wPt = Math.min(maxW, mmToPt(b.wPx * 0.264583)); // px→mm at 96dpi as a natural cap
-        if (wPt < mmToPt(10)) wPt = maxW; // tiny natural size → fill available width
-        let hPt = wPt * ratio;
-        const maxH = (topYFirst - bottomY) * 0.9;
-        if (hPt > maxH) { hPt = maxH; wPt = hPt / ratio; }
+        const { wPt, hPt } = imageSizePt(b); // same maths the orphan lookahead uses
         if (PAG.keepImagesTogether) breakBeforeIfNeeded(hPt + baseSize * 0.6);
         // Reserve the image height (page-break if needed) and place from the top of the slot.
         const yTop = advance(hPt + baseSize * 0.6);
@@ -390,5 +407,5 @@ export function layoutDocument(doc: Block[], options: LayoutOptions): LayoutResu
     }
   }
 
-  return { pageCount: page + 1, ops };
+  return { pageCount: page + 1, ops, endPage: page, endY: y };
 }

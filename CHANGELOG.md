@@ -6,6 +6,34 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **Formulas no longer disappear from the PDF.** Block and inline math (`$$…$$`, `$…$`) left no
+  trace at all: MathJax renders to SVG without any text node, so the converter dropped it *and*
+  the counter stayed at zero — meaning the summary notice kept quiet too. The PDF gave no hint
+  that anything was missing. Math now shows as `[Formel]` and is counted. The same gap affected
+  Mermaid diagrams and any other SVG-rendered element.
+- **Task lists keep their state.** `- [ ]` and `- [x]` rendered as visually identical bullets;
+  "done" was indistinguishable from "open". They now carry `[ ]` / `[x]`.
+- **A heading is no longer stranded above an image.** The orphan guard measured *text lines* of
+  the following block — meaningless for an image, which never splits. The heading fit next to
+  two notional lines, then the whole image moved to the next page and left it behind above a
+  third of a blank page.
+
+Found during the device acceptance run of 0.3.0 (2026-08-04) and fixed upstream in
+`obsidian-kit` 0.22.0; vendored here.
+
+### Changed
+
+- `tools/sync-kit.sh` stamps every vendored file with its kit version instead of only
+  `i18n.ts` — a plain `cp` had been dropping the "do not hand-edit" marker from `pdf/*.ts`. It
+  now also carries `settings.ts` and rewrites `VENDOR.json`, so re-vendoring is one command.
+- `pdf/layout.ts` and `pdf/options.ts` are no longer pinned behind the rest of the vendor
+  (they hung back at kit 0.14.0); the whole `pdf/` tree tracks one kit version.
+- `check:pure` is a script (`scripts/check-pure.mjs`) rather than a grep one-liner. The old
+  pattern only matched single quotes — the project's own style — and was therefore blind to the
+  double-quoted imports the vendored kit actually uses.
+
 ## [0.3.0] — 2026-07-16
 
 ### Added

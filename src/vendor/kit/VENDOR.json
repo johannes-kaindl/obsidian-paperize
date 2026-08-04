@@ -1,7 +1,7 @@
 {
   "source": "obsidian-kit",
-  "version": "0.17.0",
-  "sha": "2959d9f",
-  "vendored": "i18n.ts, settings.ts, pdf/wrap.ts, pdf/writer.ts, pdf/geometry.ts, pdf/ir.ts, pdf/index.ts, pdf/encoding.ts, pdf/metrics.ts, pdf/code-blocks.ts, pdf/dom-to-ir.ts, pdf/image.ts",
-  "note": "Verbatim snapshot. Never hand-edit. Re-copy from obsidian-kit to update. pdf/layout.ts und pdf/options.ts sind separat per Datei-Header gepinnt (@0.14.0, nachhinkend) und NICHT von dieser VENDOR.json abgedeckt. obsidian/collapsible.ts liegt seit 2026-07-28 (drift-audit, kit-obsidian-Ablagekonvention) in ../kit-obsidian/, siehe dortige VENDOR.json."
+  "version": "0.22.0",
+  "sha": "d87e9e2",
+  "vendored": "i18n.ts, settings.ts, pdf/*.ts",
+  "note": "Verbatim snapshot. Never hand-edit. Re-vendor via tools/sync-kit.sh. Seit 0.22.0 laufen pdf/layout.ts und pdf/options.ts mit, statt separat nachhinkend gepinnt zu sein. obsidian/collapsible.ts liegt in ../kit-obsidian/, siehe dortige VENDOR.json."
 }
