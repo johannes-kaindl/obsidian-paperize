@@ -35,19 +35,26 @@ iPad.
   [`SECURITY.md`](https://github.com/johannes-kaindl/obsidian-paperize/blob/main/SECURITY.md)
   for the full statement.
 
-## Quick start
+## Requirements
+
+- **Obsidian 1.8.7** or newer (the plugin follows the app's display language, which needs
+  the `getLanguage()` API introduced in that version).
+- Desktop **and** iPhone/iPad — Paperize produces real vector PDF bytes on both.
+- Nothing else: no external PDF library, no network access, no companion app.
+
+## Install
 
 Repository: [github.com/johannes-kaindl/obsidian-paperize](https://github.com/johannes-kaindl/obsidian-paperize)
 (source mirror: [git.jkaindl.de/jkaindl/obsidian-paperize](https://git.jkaindl.de/jkaindl/obsidian-paperize))
 
-### Install from Obsidian (once listed in Community Plugins)
+### From Obsidian (once listed in Community Plugins)
 
 1. Open **Settings → Community plugins → Browse**.
 2. Search for **"Paperize"** and select **Install**.
 3. **Enable** Paperize — no configuration is required to get started; the defaults work
    out of the box.
 
-### Manual install
+### Manually
 
 ```bash
 # Copy the plugin into your vault
@@ -64,14 +71,14 @@ Then: Obsidian → Settings → Community plugins → reload → enable **Paperi
 
 1. Open any Markdown note.
 2. Run **Export active note as PDF** (command palette) or click the ribbon icon.
-3. The PDF appears at the configured output location (see **Settings → Output
+3. The PDF appears at the configured output location (see **Configuration → Output
    destination** below). If any elements were simplified during export, a notice tells
    you how many.
 
 Frontmatter is stripped from the exported PDF by default (configurable). The first
 heading (or the note's filename, if there is none) becomes the title.
 
-## Settings
+## Configuration
 
 The Settings tab is grouped into five collapsible sections. **Output** starts expanded —
 it holds the destination and the filename scheme; the rest remember whether you left them
@@ -116,7 +123,23 @@ typo shows up in the filename instead of silently disappearing; an empty scheme 
 PDF. With it, each export counts up to the next free name (`Report v1.pdf`, `Report v2.pdf`, …).
 It has no effect in the *attachment folder* mode, where Obsidian resolves collisions itself.
 
-## Standard Markdown scope & graceful degradation
+## How it works
+
+Obsidian renders your note the way it always does; Paperize then converts that rendered
+output into a small, platform-independent description of the page (headings, paragraphs,
+lists, tables, images) and writes the PDF from it directly — no browser print dialog, no
+external library, no network. That is why the result is identical on desktop and on iOS,
+and why the text stays selectable rather than becoming a picture of text.
+
+Two consequences follow from this design, and both are deliberate:
+
+- **Anything Obsidian draws as a graphic rather than as text** (formulas, Mermaid
+  diagrams) cannot be carried over as text. Paperize marks the spot instead of dropping it
+  silently, and counts it in the notice you get after export.
+- **Live views** such as Bases or Dataview blocks are not static Markdown; they render as
+  interface chrome and cannot be reproduced meaningfully in a document.
+
+### Standard Markdown scope & graceful degradation
 
 Paperize targets a deliberately bounded, well-tested scope of Markdown, listed under
 **Features** above. Anything Obsidian renders that falls outside that scope — callouts,

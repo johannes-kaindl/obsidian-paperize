@@ -155,7 +155,15 @@ Session-Handoff unter `.remember/` (gitignored).
 
 ## Abweichungen von der Leitkonvention
 
-Keine bekannten Abweichungen — dieses Repo folgt dem Standard-Profil
+- **`.github/workflows/release.yml` weicht bewusst vom `tools/release-template/` ab.** Die
+  Schritte sind identisch; abweichend sind nur die **Kommentare**, die hier englisch statt
+  deutsch sind (öffentliches Repo mit zweisprachiger Doku) und die Build-vs-Zero-Build-Frage
+  erklären: Das attestierte Subjekt ist hier der reproduzierbar erzeugte **Build-Output**, kein
+  committeter Quelltext. Der `template_drift`-Check des Workspace-Audits meldet das als Drift —
+  er vergleicht Text, nicht Verhalten. Was er zu Recht fand und was gefixt wurde:
+  `actions/checkout`/`setup-node` hingen auf `v4` (2026-08-04 → `v5`).
+
+Ansonsten folgt dieses Repo dem Standard-Profil
 `ts-node · obsidian-plugin` (TypeScript + esbuild + vitest), im Unterschied zu
 Letterheads bewusstem Zero-Build-Vanilla-JS-Profil.
 

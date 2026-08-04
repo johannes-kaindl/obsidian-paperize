@@ -33,7 +33,7 @@ export async function createForgeRelease({ fetch, token, repo, tag, notes, asset
       body: JSON.stringify({ tag_name: tag, name: tag, body: notes, draft: false, prerelease: false }),
     });
     if (!created.ok) {
-      throw new Error(`Codeberg-Release anlegen fehlgeschlagen (${created.status}): ${await created.text()}`);
+      throw new Error(`Forgejo-Release anlegen fehlgeschlagen (${created.status}): ${await created.text()}`);
     }
     release = await created.json();
   }
