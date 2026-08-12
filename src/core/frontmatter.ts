@@ -9,6 +9,16 @@ const SYSTEM_FIELDS = new Set([
 
 export interface MetadataEntry { key: string; value: string }
 
+// Narrow-typed stringifier for the primitive-else branch below: `String()` itself takes
+// `any`, so casting straight into `String(raw as ...)` type-checks trivially and
+// `@typescript-eslint/no-unnecessary-type-assertion` then flags the cast as pointless —
+// but without it, `@typescript-eslint/no-base-to-string` correctly distrusts the
+// unnarrowable `unknown` remainder. Routing through a genuinely narrow parameter type
+// satisfies both rules at once.
+function stringifyPrimitive(v: string | number | boolean | bigint | symbol): string {
+  return String(v);
+}
+
 export function buildMetadataEntries(fm: Record<string, unknown> | null | undefined): MetadataEntry[] {
   if (!fm || typeof fm !== 'object') return [];
   const out: MetadataEntry[] = [];
@@ -23,7 +33,10 @@ export function buildMetadataEntries(fm: Record<string, unknown> | null | undefi
     } else if (typeof raw === 'object') {
       value = JSON.stringify(raw);
     } else {
-      value = String(raw);
+      // Primitive (string/number/boolean/bigint/symbol) — Array and object are already
+      // handled above. TS can't narrow `unknown` through elimination here (typeof's
+      // negative branch on `unknown` stays `{}`), so the domain is asserted explicitly.
+      value = stringifyPrimitive(raw as string | number | boolean | bigint | symbol);
     }
     out.push({ key, value });
   }
