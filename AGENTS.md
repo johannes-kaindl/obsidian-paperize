@@ -108,11 +108,15 @@ Build-Ergebnis** (`main.js`/`manifest.json`/`styles.css`) — das attestierte Su
 also kein committeter Quelltext, sondern der reproduzierbar erzeugte Output. Details und
 Einordnung: [`SECURITY.md`](https://github.com/johannes-kaindl/obsidian-paperize/blob/main/SECURITY.md).
 
-- `scripts/release.mjs` (`npm run release -- <version>`) bündelt Versions-Bump (siehe
-  `scripts/version-bump.mjs`), CHANGELOG-Rewrite, Commit, Tag, Push nach Forgejo
-  (`origin`), lokalen Build, Forgejo-Release und Dual-Push-Mirror nach `github` (Tag
-  zuerst, dann Branch) — Letzteres non-fatal: schlägt der GitHub-Push fehl, bleibt der
-  Forgejo-Release gültig, der GitHub-Tag-Push muss manuell nachgeholt werden.
+- `npm run release -- <version>` ruft das **zentrale** Tooling im Dach
+  (`../tools/release/release.mjs`) — seit 2026-08-13 gibt es keine repo-lokale Kopie mehr,
+  und eine neu auftauchende wäre ein Rückstand, kein Sonderweg. Es bündelt README-Gate,
+  Versions-Bump (inkl. `package-lock.json`), CHANGELOG-Rewrite, das volle `npm run gate`
+  **vor** Commit und Tag, Push nach Forgejo (`origin`), Build gegen den getaggten Stand,
+  Dual-Push-Mirror nach `github` und dessen **Verifikation** (Tag und Branch müssen dort
+  auf dem Release-Commit stehen — ein still fehlgeschlagener Branch-Push friert den Store
+  auf der alten Version ein). Ein Klon ohne das Dach-Verzeichnis ist nicht release-fähig
+  und sagt das mit einer eigenen Meldung.
 - `origin` bleibt Forgejo; nur der Tag muss zusätzlich auf den `github`-Remote, damit
   der Workflow feuert. Voraussetzung: Actions sind im Mirror-Repo aktiviert und
   `~/.forgejo-token` existiert lokal für den Forgejo-Release-Schritt.
