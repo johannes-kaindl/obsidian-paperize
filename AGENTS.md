@@ -45,11 +45,28 @@ Abbruch. Desktop **und** iOS/iPad (`isDesktopOnly: false`) erzeugen echte Vektor
   Alles übrige im Vendor (`i18n`, `pdf`, `settings`) ist pure und bleibt geprüft. Die
   Grenze verläuft bei **„pure", nicht bei „vendored"**: Ein neues gekoppeltes Kit-Modul gehört
   in diesen Ordner, nicht in eine weitere Skript-Ausnahme.
-- **Settings-Tab — Sektionen sind Daten, nicht Layout:** `SECTIONS` in `src/obsidian/settings.ts`
-  ist eine pure Tabelle (Key · i18n-Titel · Startzustand), `display()` liest nur daraus. Grund:
-  Der Obsidian-Mock des Repos ist minimal (`Setting` ist eine leere Klasse), `display()` selbst
-  ist damit nicht unit-testbar — die Tabelle und `createCollapsibleStorage` sind es. Wer eine
-  Sektion hinzufügt, ändert die Tabelle, nicht die Render-Logik.
+- **Settings-Tab — zweigleisig, `getSettingDefinitions()` ist die eine Wahrheit** (seit 0.3.3):
+  Ab Obsidian 1.13 fragt der Host die Definitionen selbst ab, rendert sie nativ und nimmt die
+  Zeilen in die **Settings-Suche** auf; darunter ruft er `display()`, das über
+  `renderSettingDefinitions` (vendored aus dem Kit) *dieselben* Definitionen nachzeichnet.
+  `minAppVersion` bleibt deshalb 1.8.7. Wer eine Einstellung hinzufügt, ergänzt `groups()` —
+  **nie einen der beiden Render-Pfade einzeln**, sonst driften sie auseinander. `SECTIONS`
+  bleibt die pure Tabelle (Key · i18n-Titel · Startzustand) und speist beides: den
+  Gruppen-Aufbau und die Collapsible-Sektionen des Fallbacks. Testbarkeit unverändert: der
+  Obsidian-Mock ist minimal (`Setting` ist eine leere Klasse), also sind die *Definitionen*
+  unit-testbar und die Render-Pfade nicht — genau deshalb liegt die Wahrheit in den Daten.
+  Drei Fallstricke, alle gemessen (Details in `../REGISTRY.md`):
+  1. **`visible` am Gruppen-Item wertet der native 1.13.7-Renderer nicht aus.** Die Definition
+     lieferte korrekt `false`, die Zeile blieb stehen, auch nach vollem Tab-Neuaufbau. Bedingte
+     Zeilen deshalb **weglassen** statt ausblenden — wirkt in beiden Pfaden, weil
+     `getSettingDefinitions()` bei jedem Rebuild neu ausgewertet wird.
+  2. **Ein interner `display()`-Aufruf löst die 1.13-Deprecation aus.** Der Rebuild liegt in
+     `renderFallback()`; `display()` bleibt nur als Wrapper stehen, weil der Host < 1.13 genau
+     diese Methode ruft.
+  3. **Die Obsidian-Version nicht aus `Info.plist` lesen** — die App aktualisiert sich intern,
+     ohne sie zu ändern (gemessen 1.12.4, tatsächlich 1.13.7). Zur Laufzeit messen:
+     `require('electron').ipcRenderer.sendSync('version')`. Der falsche Wert führte hier zur
+     Fehlannahme, der native Pfad sei gar nicht prüfbar.
 - **`uiCollapsed` erzwingt `mergeSettings`:** Mit dem Sektions-Zustand kam der erste
   **Objekt-Default** in die Settings. Ein flacher Merge (`Object.assign`/Spread) teilt dessen
   Referenz mit `DEFAULT_SETTINGS` — das erste Zuklappen mutiert dann die Modul-Defaults. Beide
@@ -58,8 +75,11 @@ Abbruch. Desktop **und** iOS/iPad (`isDesktopOnly: false`) erzeugen echte Vektor
 - **Begrenzte Zahlenwerte gehören in einen Slider, nicht in ein Textfeld:** Textfeld +
   `if`-Guard im `onChange` verwirft eine Eingabe außerhalb der Grenzen **still** — nichts
   gespeichert, nichts gemeldet, das Feld zeigt weiter den getippten Wert. Die Anzeige lügt.
-  `addSlider().setLimits(…).setDynamicTooltip()` macht den ungültigen Wert unmöglich und zeigt
-  die Grenzen. Gilt für `baseSizePt`/`marginMm`/`lineHeight`/`imageMaxWidthPct`/`headingKeepWithLines`.
+  Ein `slider`-Control mit `min`/`max`/`step` macht den ungültigen Wert unmöglich und zeigt die
+  Grenzen. Gilt für `baseSizePt`/`marginMm`/`lineHeight`/`imageMaxWidthPct`/`headingKeepWithLines`.
+  Den Wert zeigt seit 0.3.3 `displayFormat` (er steht dauerhaft im Namen, mit Einheit) statt
+  `setDynamicTooltip()` — das ist ab 1.13 deprecated und im deklarativen Pfad gar nicht
+  vorhanden, wo es den Wert also **nirgends** mehr angezeigt hätte.
 - **Dateiname-Schema:** `src/core/filename.ts` ist pure und rechnet nur; die `{version}`-Zählung
   braucht Vault-Zugriff und lebt deshalb in `resolveVersionedOutputPath` (`output.ts`).
   `hasVersionPlaceholder` ist **load-bearing**: Ohne diesen Guard würde die Suchschleife bei
