@@ -80,9 +80,13 @@ heading (or the note's filename, if there is none) becomes the title.
 
 ## Configuration
 
-The Settings tab is grouped into five collapsible sections. **Output** starts expanded —
-it holds the destination and the filename scheme; the rest remember whether you left them
-open.
+The Settings tab is grouped into five sections; **Output** comes first and holds the
+destination and the filename scheme.
+
+On **Obsidian 1.13 and later** Obsidian renders the settings itself, which also makes every
+row findable through the settings search — the sections appear as plain headings there. On
+**older versions** the plugin draws the same sections as collapsible groups, with *Output*
+expanded and the rest remembering whether you left them open.
 
 | Section | Setting | Description | Default |
 | --- | --- | --- | --- |

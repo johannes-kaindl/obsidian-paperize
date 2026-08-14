@@ -82,9 +82,14 @@ erste Überschrift (oder der Dateiname, falls keine vorhanden ist) wird zum Tite
 
 ## Konfiguration
 
-Der Einstellungen-Tab ist in fünf einklappbare Sektionen gegliedert. **Ausgabe** startet
-aufgeklappt — dort stehen Ausgabeziel und Dateiname-Schema; die übrigen merken sich, ob du
-sie offen gelassen hast.
+Der Einstellungen-Tab ist in fünf Sektionen gegliedert; **Ausgabe** steht vorn und enthält
+Ausgabeziel und Dateiname-Schema.
+
+Ab **Obsidian 1.13** zeichnet Obsidian die Einstellungen selbst — dadurch findet die
+Einstellungs-Suche jede Zeile, und die Sektionen erscheinen dort als schlichte
+Überschriften. Unter **älteren Versionen** zeichnet das Plugin dieselben Sektionen als
+einklappbare Gruppen, mit *Ausgabe* aufgeklappt; die übrigen merken sich, ob du sie offen
+gelassen hast.
 
 | Sektion | Einstellung | Beschreibung | Standard |
 | --- | --- | --- | --- |
