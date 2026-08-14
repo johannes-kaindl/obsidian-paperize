@@ -1,7 +1,7 @@
 {
   "source": "obsidian-kit",
-  "version": "0.22.0",
-  "sha": "d87e9e2",
+  "version": "0.26.1",
+  "sha": "c10f6f4",
   "vendored": "i18n.ts, settings.ts, pdf/*.ts",
   "note": "Verbatim snapshot. Never hand-edit. Re-vendor via tools/sync-kit.sh. Seit 0.22.0 laufen pdf/layout.ts und pdf/options.ts mit, statt separat nachhinkend gepinnt zu sein. obsidian/collapsible.ts liegt in ../kit-obsidian/, siehe dortige VENDOR.json."
 }

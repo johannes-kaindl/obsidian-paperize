@@ -6,6 +6,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **A code block vanished from the PDF when its fence hugged the preceding line of text.** A
+  fenced code block may interrupt a paragraph in CommonMark/Obsidian; without a blank line above
+  it, the internal placeholder ended up inside that paragraph as a soft break. Only a lone
+  placeholder is resolved back into code, so the block silently fell out of the PDF and the raw
+  placeholder text (`PAPERIZECODE0`) was printed as body text instead. Fixed upstream in
+  `obsidian-kit` 0.26.1 and re-vendored here (0.22.0 → 0.26.1; apart from this correction the
+  vendored kit sources are unchanged).
+
 ## [0.3.1] — 2026-08-04
 
 ### Fixed
