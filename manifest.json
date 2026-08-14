@@ -5,6 +5,6 @@
   "minAppVersion": "1.8.7",
   "description": "Export the active note as a clean, text-selectable vector PDF — just the note's content. Works on desktop, iPhone and iPad.",
   "author": "Johannes Kaindl",
-  "authorUrl": "https://jkaindl.de",
+  "authorUrl": "https://github.com/johannes-kaindl",
   "isDesktopOnly": false
 }
