@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.2] — 2026-08-14
+
 ### Fixed
 
 - **A code block vanished from the PDF when its fence hugged the preceding line of text.** A
