@@ -30,6 +30,29 @@ for m in i18n settings; do
   echo "vendored obsidian-kit@$VER/pure/$m.ts → src/vendor/kit/$m.ts"
 done
 
+# Obsidian-gekoppelte Kit-Module. Sie liegen bewusst NICHT unter src/vendor/kit/ (das ist die
+# pure Schicht, die check:pure bewacht), sondern in src/vendor/kit-obsidian/ — der einzigen
+# benannten Ausnahme in scripts/check-pure.mjs. Bis 2026-08-14 zog dieses Skript sie gar nicht
+# nach, obwohl ihr Header "re-vendor via tools/sync-kit.sh" versprach: collapsible.ts hing
+# deshalb auf 0.16.0 fest. Ein Header, der auf ein Skript zeigt, das die Datei nicht kennt,
+# ist keine Anweisung, sondern eine stille Unwahrheit.
+for m in collapsible folder-suggest settings_walker; do
+  cp "$KIT/src/obsidian/$m.ts" "src/vendor/kit-obsidian/$m.ts"
+  stamp "src/vendor/kit-obsidian/$m.ts" "src/obsidian/$m.ts"
+  echo "vendored obsidian-kit@$VER/obsidian/$m.ts → src/vendor/kit-obsidian/$m.ts"
+done
+
+cat > src/vendor/kit-obsidian/VENDOR.json <<JSON
+{
+  "source": "obsidian-kit",
+  "version": "$VER",
+  "sha": "$SHA",
+  "vendored": "collapsible.ts, folder-suggest.ts, settings_walker.ts",
+  "note": "Verbatim snapshot der obsidian-GEKOPPELTEN Kit-Schicht. Never hand-edit. Re-vendor via tools/sync-kit.sh. Von check:pure ausgenommen (benannte EXCLUDED-Konstante in scripts/check-pure.mjs). settings_walker.ts importiert folder-suggest.ts — beide muessen zusammen mitlaufen."
+}
+JSON
+echo "kit-obsidian/VENDOR.json → $VER ($SHA)"
+
 # VENDOR.json answers "which kit is this?" without diffing the sources.
 cat > src/vendor/kit/VENDOR.json <<JSON
 {

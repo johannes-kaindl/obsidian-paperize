@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
-vi.mock('obsidian', () => ({ PluginSettingTab: class {}, Setting: class {}, App: class {} }));
-import { DEFAULT_SETTINGS, settingsToOptions, SECTIONS, createCollapsibleStorage } from '../../src/obsidian/settings';
+// AbstractInputSuggest: vom vendorten settings_walker via folder-suggest importiert. Der
+// Vendor bleibt verbatim, der Mock waechst mit — nicht umgekehrt.
+vi.mock('obsidian', () => ({ PluginSettingTab: class {}, Setting: class {}, App: class {}, AbstractInputSuggest: class {} }));
+import { DEFAULT_SETTINGS, settingsToOptions, SECTIONS, createCollapsibleStorage, PaperizeSettingTab } from '../../src/obsidian/settings';
 import { mergeSettings } from '../../src/vendor/kit/settings';
 import { EN, DE } from '../../src/i18n/strings';
 
@@ -114,5 +116,95 @@ describe('settingsToOptions', () => {
       keepCodeTogether: true,
       headingKeepWithLines: 2,
     });
+  });
+});
+
+/* ── Deklarative Settings-API (Obsidian ≥ 1.13) ──────────────────────────────
+   getSettingDefinitions() IST die Wahrheit; display() zeichnet dieselbe Struktur
+   fuer < 1.13 nach. Diese Tests halten die Struktur fest — display() selbst ist
+   mit dem minimalen Mock (Setting = leere Klasse) nicht unit-testbar, die
+   Definitionen sind es. */
+describe('getSettingDefinitions', () => {
+  function tab(overrides: Partial<typeof DEFAULT_SETTINGS> = {}) {
+    const plugin = {
+      settings: { ...DEFAULT_SETTINGS, uiCollapsed: {}, ...overrides },
+      saveSettings: async () => {},
+    };
+    return { tab: new PaperizeSettingTab({} as never, plugin), plugin };
+  }
+
+  it('returns one group per section, in SECTIONS order', () => {
+    const defs = tab().tab.getSettingDefinitions();
+    expect(defs.map((g) => (g as { key: string }).key)).toEqual(SECTIONS.map((s) => s.key));
+  });
+
+  it('gives every group a heading and the group type', () => {
+    for (const g of tab().tab.getSettingDefinitions()) {
+      expect((g as { type?: string }).type).toBe('group');
+      expect((g as { heading?: string }).heading).toBeTruthy();
+    }
+  });
+
+  it('binds every control key to a real settings field (typo guard)', () => {
+    const keys = new Set(Object.keys(DEFAULT_SETTINGS));
+    for (const g of tab().tab.getSettingDefinitions()) {
+      for (const item of (g as { items?: unknown[] }).items ?? []) {
+        const c = (item as { control?: { key: string } }).control;
+        if (c) expect(keys, `unknown control key ${c.key}`).toContain(c.key);
+      }
+    }
+  });
+
+  it('covers every setting the imperative UI offered — no row lost in migration', () => {
+    // Bewusst als Literal-Liste: eine aus dem Code abgeleitete Erwartung wuerde jede
+    // Auslassung mit-ableiten und den Regressionsschutz aufheben.
+    const expected = [
+      'outputMode', 'customFolder', 'filenameTemplate',
+      'pageSize', 'marginMm',
+      'fontChoice', 'baseSizePt', 'lineHeight', 'imageMaxWidthPct',
+      'showTitle', 'showFrontmatter', 'pageNumbers', 'runningHeaderFooter',
+      'pageBreakMarker', 'keepTablesTogether', 'repeatTableHeader',
+      'keepImagesTogether', 'keepCodeTogether', 'headingKeepWithLines',
+    ];
+    const got = tab({ outputMode: 'customFolder' as never }).tab.getSettingDefinitions()
+      .flatMap((g) => ((g as { items?: unknown[] }).items ?? []))
+      .map((i) => (i as { control?: { key: string } }).control?.key)
+      .filter(Boolean);
+    expect(got.sort()).toEqual(expected.sort());
+  });
+
+  it('omits the folder row entirely unless the custom-folder mode is active', () => {
+    // Weglassen statt `visible: false`: 1.13.7 wertet `visible` am Gruppen-Item nicht aus
+    // (live gemessen). Diese Invariante haelt den Unterschied fest.
+    const present = (mode: string) =>
+      tab({ outputMode: mode as never }).tab.getSettingDefinitions()
+        .flatMap((g) => ((g as { items?: unknown[] }).items ?? []))
+        .some((i) => (i as { control?: { key: string } }).control?.key === 'customFolder');
+    expect(present('customFolder')).toBe(true);
+    expect(present('nextToNote')).toBe(false);
+  });
+
+  it('keeps the bounded numbers as sliders with their limits (no silent-discard text fields)', () => {
+    const byKey = new Map(tab().tab.getSettingDefinitions()
+      .flatMap((g) => ((g as { items?: unknown[] }).items ?? []))
+      .map((i) => [(i as { control?: { key: string } }).control?.key, (i as { control?: Record<string, unknown> }).control]));
+    for (const k of ['baseSizePt', 'marginMm', 'lineHeight', 'imageMaxWidthPct', 'headingKeepWithLines']) {
+      const c = byKey.get(k) as { type?: string; min?: number; max?: number } | undefined;
+      expect(c?.type, `${k} must stay a slider`).toBe('slider');
+      expect(typeof c?.min).toBe('number');
+      expect(typeof c?.max).toBe('number');
+    }
+  });
+});
+
+describe('setting control host', () => {
+  it('reads and writes the plugin settings and persists', async () => {
+    let saved = 0;
+    const plugin = { settings: { ...DEFAULT_SETTINGS, uiCollapsed: {} }, saveSettings: async () => { saved++; } };
+    const t2 = new PaperizeSettingTab({} as never, plugin);
+    expect(t2.getControlValue('baseSizePt')).toBe(DEFAULT_SETTINGS.baseSizePt);
+    await t2.setControlValue('baseSizePt', 14);
+    expect(plugin.settings.baseSizePt).toBe(14);
+    expect(saved).toBe(1);
   });
 });

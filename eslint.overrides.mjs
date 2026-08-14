@@ -23,20 +23,4 @@ export default [
       },
     },
   },
-  {
-    // STORE-SCHULD (Store-Scanner-Paritaet, 2026-08-13): PaperizeSettingTab nutzt noch
-    // die klassische display()-API statt der deklarativen getSettingDefinitions() (seit
-    // Obsidian 1.13.0). minAppVersion dieses Repos ist 1.8.7 — ein grosser Teil der
-    // Nutzerbasis laeuft noch unter 1.13.0, wo getSettingDefinitions() gar nicht existiert.
-    // Migration ist eine echte Fluss-Aenderung der Settings-Sektionen (SECTIONS-Tabelle +
-    // collapsibleSection, s. AGENTS.md), keine mechanische Kleinumbau — bewusst zurueckgestellt,
-    // bis minAppVersion angehoben wird. Gleiche Ursache treibt auch die display()- und
-    // setDynamicTooltip()-Deprecation-Warnungen unten: beide APIs sind erst ab 1.13.0
-    // ersetzbar, ohne Slider-Tooltips fuer die 1.8.7–1.12.x-Nutzerbasis zu verlieren.
-    files: ["src/obsidian/settings.ts"],
-    rules: {
-      "obsidianmd/settings-tab/prefer-setting-definitions": "off",
-      "@typescript-eslint/no-deprecated": "off",
-    },
-  },
 ];

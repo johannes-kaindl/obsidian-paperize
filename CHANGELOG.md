@@ -6,6 +6,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Plugin settings now appear in Obsidian's settings search** (Obsidian 1.13.0 and later).
+  The tab implements the declarative `getSettingDefinitions()` API, which the host also uses to
+  render the settings natively. `display()` remains as the imperative fallback for Obsidian
+  below 1.13 and draws the *same* definitions, so `minAppVersion` stays at 1.8.7 — no user is
+  left behind. One deliberate difference between the paths: the collapsible sections exist only
+  in the fallback, because the native renderer has no notion of collapsing. From 1.13 on, the
+  settings search replaces collapsing as the remedy for a long list.
+
 ## [0.3.2] — 2026-08-14
 
 ### Fixed
