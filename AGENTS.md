@@ -40,7 +40,8 @@ Abbruch. Desktop **und** iOS/iPad (`isDesktopOnly: false`) erzeugen echte Vektor
   damit in Node/vitest testbar; `npm run check:pure` erzwingt das.
 - **Vendor-Schichtung:** Das Kit hat zwei Schichten (`src/pure` und `src/obsidian`); der Vendor
   spiegelt sie. Obsidian-gekoppelte Kit-Module liegen real unter `src/vendor/kit-obsidian/`
-  (derzeit `collapsible.ts`, importiert `setIcon`). Dieser Ordner steht als einziger Eintrag in
+  (`collapsible.ts`, `folder-suggest.ts`, `settings_walker.ts` — letzteres importiert das
+  vorige, beide müssen zusammen mitlaufen). Dieser Ordner steht als einziger Eintrag in
   `EXCLUDED` in `scripts/check-pure.mjs` — die Ausnahme ist damit benannt statt implizit.
   Alles übrige im Vendor (`i18n`, `pdf`, `settings`) ist pure und bleibt geprüft. Die
   Grenze verläuft bei **„pure", nicht bei „vendored"**: Ein neues gekoppeltes Kit-Modul gehört
@@ -157,9 +158,15 @@ Einordnung: [`SECURITY.md`](https://github.com/johannes-kaindl/obsidian-paperize
 
 - `main.js` ist ein **Build-Artefakt** (`.gitignore`) — anders als bei Letterhead nicht
   committen. Der Release-Workflow baut es serverseitig aus dem getaggten Commit.
-- `tools/sync-kit.sh` ist der Vendoring-Sync gegen `obsidian-kit` — ein Aufruf zieht
-  `pdf/*.ts`, `i18n.ts` und `settings.ts` nach, stempelt jede Datei mit der Kit-Version und
-  schreibt `VENDOR.json`. Nie `src/vendor/kit/` von Hand nachziehen.
+- `tools/sync-kit.sh` ist der Vendoring-Sync gegen `obsidian-kit` — ein Aufruf zieht die pure
+  Schicht (`pdf/*.ts`, `i18n.ts`, `settings.ts`) **und** die obsidian-gekoppelte
+  (`collapsible.ts`, `folder-suggest.ts`, `settings_walker.ts`) nach, stempelt jede Datei mit
+  der Kit-Version und schreibt beide `VENDOR.json`. Nie von Hand nachziehen. Die gekoppelte
+  Schicht lief bis 2026-08-14 **nicht** mit, obwohl der Header von `collapsible.ts` genau das
+  versprach — die Datei hing dadurch auf 0.16.0 fest (inhaltlich identisch, nur das Etikett war
+  alt). Ein Header, der auf ein Skript zeigt, das die Datei nicht kennt, ist keine Anweisung.
+  Nach jedem Lauf `git status --short` prüfen und den **gesamten** Stand committen: das Skript
+  meldet nur, was man angefordert hat, tut aber dasselbe für jeden Eintrag seiner Schleife.
 - **Das Export-DOM ist nicht das Preview-DOM.** `MarkdownRenderer.render` in einen *detached*
   Container (`createDiv()`) führt nicht alles aus, was die Live-Ansicht zeigt: Ein Callout-Icon
   bleibt dort ein nacktes `<svg width="16" height="16">` **ohne Klasse und ohne `aria-hidden`**,
