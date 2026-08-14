@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.3] — 2026-08-14
+
 ### Added
 
 - **Plugin settings now appear in Obsidian's settings search** (Obsidian 1.13.0 and later).
