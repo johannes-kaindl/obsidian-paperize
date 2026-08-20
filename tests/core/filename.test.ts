@@ -60,4 +60,23 @@ describe('buildFilename', () => {
   it('falls back to Dokument when template and title are both empty', () => {
     expect(buildFilename('', { ...V, title: '' })).toBe('Dokument');
   });
+
+  // Regression: bis 0.3.3 war die subs-Map ein Objekt-Literal und wurde mit `subs[key] ?? …`
+  // gelesen — fuer jeden Namen auf Object.prototype war der Zugriff also NICHT undefined, der
+  // Literal-Fallback feuerte nie, und der Funktionsquelltext landete im Dateinamen
+  // ({toString} → "function toString() { _native code_ }"). Das Schema ist ein freies
+  // Textfeld im Settings-Tab, der Weg in den Bug fuehrte also ueber Tippen.
+  it.each([
+    'toString', 'constructor', 'valueOf', 'hasOwnProperty', 'isPrototypeOf',
+    'toLocaleString', 'propertyIsEnumerable', '__defineGetter__', '__lookupGetter__',
+    '__defineSetter__', '__lookupSetter__',
+  ])('leaves the prototype member {%s} literal instead of leaking its source', (key) => {
+    expect(buildFilename(`{${key}}`, V)).toBe(`{${key}}`);
+  });
+
+  // __proto__ ist der Sonderfall: kein eigenes Feld, aber ein Accessor auf Object.prototype,
+  // der frueher "_object Object_" lieferte (der sanitisierte "[object Object]").
+  it('leaves {__proto__} literal too', () => {
+    expect(buildFilename('{__proto__}', V)).toBe('{__proto__}');
+  });
 });

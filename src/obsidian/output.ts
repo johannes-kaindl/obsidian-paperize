@@ -4,6 +4,7 @@ import type { OutputMode } from './settings';
 import { t } from '../vendor/kit/i18n';
 import { buildFilename, hasVersionPlaceholder, sanitizeFilename } from '../core/filename';
 import type { FilenameValues } from '../core/filename';
+import { joinVaultPath, vaultDirname } from '../vendor/kit/vault-path';
 
 // Runtime-only API surfaces not covered by the standard/Obsidian typings.
 interface ShareCapableNavigator {
@@ -14,16 +15,11 @@ interface AppWithDefaultApp {
   openWithDefaultApp?: (path: string) => Promise<void>;
 }
 
-// Delegat auf die eine Sanitisierungs-Regel des Repos (src/core/filename.ts) plus Paperize'
-// Fallback-Konstante. Verhaltensgleich zur vorherigen lokalen Implementierung.
+// Delegat auf die eine Sanitisierungs-Regel des Repos plus Paperize' Fallback-Konstante.
+// Die Regel selbst liegt seit dem Kit-Anschluss in src/vendor/kit/filename-template.ts;
+// src/core/filename.ts ist die repo-eigene Hülle darum und bleibt die Adresse dafür.
 export function sanitizeBase(name: string): string {
   return sanitizeFilename(name) || 'Dokument';
-}
-
-// Join two vault-relative path fragments without leading/trailing slash noise.
-function joinPath(dir: string, file: string): string {
-  const d = (dir || '').replace(/^\/+|\/+$/g, '');
-  return d ? `${d}/${file}` : file;
 }
 
 // Resolve the target .pdf path (vault-relative). Returns null for the share mode.
@@ -33,8 +29,8 @@ export function resolveOutputPath(
 ): string | null {
   const file = `${sanitizeBase(opts.baseName)}.pdf`;
   if (mode === 'share') return null;
-  if (mode === 'nextToNote') return joinPath(opts.noteDir, file);
-  if (mode === 'customFolder') return joinPath(opts.customFolder, file);
+  if (mode === 'nextToNote') return joinVaultPath(opts.noteDir, file);
+  if (mode === 'customFolder') return joinVaultPath(opts.customFolder, file);
   // attachmentFolder: attachmentPath is a resolved vault path from getAvailablePathForAttachment.
   return opts.attachmentPath;
 }
@@ -91,7 +87,9 @@ export async function writePdf(
   // Der Pfad kommt fertig aus resolveVersionedOutputPath — dort lebt die {version}-Zählung,
   // die awaiten muss (resolveOutputPath ist synchron und rein).
   const path = ctx.resolvedPath!;
-  const dir = path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';
+  // vaultDirname statt slice(0, lastIndexOf('/')): bei einer Datei in der Vault-Wurzel ist
+  // lastIndexOf gleich -1, und slice(0, -1) schnitte das letzte Zeichen des DATEINAMENS ab.
+  const dir = vaultDirname(path);
   if (dir && !(await adapter.exists(dir))) await adapter.mkdir(dir);
   await adapter.writeBinary(path, bytes.buffer as ArrayBuffer);
   if (ctx.openAfter && typeof appExt.openWithDefaultApp === 'function') { try { await appExt.openWithDefaultApp(path); } catch { /* ignore */ } }

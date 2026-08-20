@@ -1,7 +1,7 @@
 // tests/obsidian/output.test.ts
 import { describe, it, expect, vi } from 'vitest';
 vi.mock('obsidian', () => ({ Notice: class {}, App: class {} }));
-import { resolveOutputPath, sanitizeBase, resolveVersionedOutputPath } from '../../src/obsidian/output';
+import { resolveOutputPath, sanitizeBase, resolveVersionedOutputPath, writePdf } from '../../src/obsidian/output';
 
 describe('resolveOutputPath', () => {
   const base = { noteDir: 'Notes', baseName: 'Meine Notiz', customFolder: 'Exports', attachmentPath: 'Media/Meine Notiz.pdf' };
@@ -19,6 +19,15 @@ describe('resolveOutputPath', () => {
   });
   it('handles a note in the vault root', () => {
     expect(resolveOutputPath('nextToNote', { ...base, noteDir: '' })).toBe('Meine Notiz.pdf');
+  });
+  // „Eigener Ordner" ist ein freies Textfeld im Settings-Tab, es kommt roh hier an.
+  it('normalises slash noise in a hand-typed custom folder', () => {
+    expect(resolveOutputPath('customFolder', { ...base, customFolder: '/Export//PDF/' }))
+      .toBe('Export/PDF/Meine Notiz.pdf');
+  });
+  it('normalises backslashes in a hand-typed custom folder', () => {
+    expect(resolveOutputPath('customFolder', { ...base, customFolder: 'Export\\PDF' }))
+      .toBe('Export/PDF/Meine Notiz.pdf');
   });
 });
 
@@ -88,5 +97,49 @@ describe('resolveVersionedOutputPath', () => {
     const { app } = fakeApp([]);
     const r = await resolveVersionedOutputPath(app, 'customFolder', '{date} {title}', vars, ctx);
     expect(r.path).toBe('Exports/2026-07-16 Bericht.pdf');
+  });
+});
+
+// writePdf hatte bis 2026-08-20 gar keinen Test. Der Netzgrund: seine Ordner-Ableitung ist
+// seither vaultDirname aus dem Kit statt einer lokalen Inline-Rechnung.
+function fakeWriteApp() {
+  const mkdirs: string[] = [];
+  const writes: string[] = [];
+  const app = {
+    vault: {
+      adapter: {
+        exists: async (_p: string) => false,
+        mkdir: async (p: string) => { mkdirs.push(p); },
+        writeBinary: async (p: string, _b: ArrayBuffer) => { writes.push(p); },
+      },
+    },
+  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return { app: app as any, mkdirs, writes };
+}
+
+describe('writePdf', () => {
+  const bytes = new Uint8Array([1, 2, 3]);
+
+  it('creates the parent folder and writes to the resolved path', async () => {
+    const { app, mkdirs, writes } = fakeWriteApp();
+    const r = await writePdf(app, bytes, 'nextToNote', {
+      baseName: 'Bericht', resolvedPath: 'Notes/Projekte/Bericht.pdf', openAfter: false,
+    });
+    expect(mkdirs).toEqual(['Notes/Projekte']);
+    expect(writes).toEqual(['Notes/Projekte/Bericht.pdf']);
+    expect(r.savedPath).toBe('Notes/Projekte/Bericht.pdf');
+  });
+
+  // Die -1-Falle: slice(0, lastIndexOf('/')) ergaebe hier den Phantom-Ordner "Muster GmbH.pd",
+  // der neben jedem Export in der Vault-Wurzel angelegt wuerde.
+  it('creates no phantom folder for a file in the vault root', async () => {
+    const { app, mkdirs, writes } = fakeWriteApp();
+    const r = await writePdf(app, bytes, 'nextToNote', {
+      baseName: 'Muster GmbH', resolvedPath: 'Muster GmbH.pdf', openAfter: false,
+    });
+    expect(mkdirs).toEqual([]);
+    expect(writes).toEqual(['Muster GmbH.pdf']);
+    expect(r.savedPath).toBe('Muster GmbH.pdf');
   });
 });

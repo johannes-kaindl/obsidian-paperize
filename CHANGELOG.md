@@ -6,6 +6,28 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **A filename template containing `{toString}` (or any other built-in JavaScript object member)
+  wrote source code into the filename instead of leaving the placeholder alone.** Both READMEs
+  promise that an unknown placeholder stays literal, and the template is a free text field in the
+  settings — so the way into this was typing, not code. `{toString}` produced
+  `function toString() { _native code_ }`, `{__proto__}` produced `_object Object_`; every name
+  that exists on `Object.prototype` was affected (measured: at least twelve, among them
+  `{constructor}`, `{valueOf}`, `{hasOwnProperty}`, `{isPrototypeOf}`, `{toLocaleString}`,
+  `{propertyIsEnumerable}` and the four `__define*__`/`__lookup*__` accessors). They now all stay
+  literal, exactly like any other unknown placeholder. Fixed upstream in `obsidian-kit` 0.27.0
+  (`pure/filename-template.ts`, which checks `Object.hasOwn` instead of relying on
+  `undefined`) and vendored here.
+
+### Changed
+
+- **The “custom folder” setting now tolerates typed slash noise.** It is a free text field, and its
+  value used to reach the vault only with leading and trailing slashes removed. Backslashes are now
+  turned into `/` and repeated inner slashes are collapsed, so `Export//PDF` and `Export\PDF` both
+  become `Export/PDF` — the shape Obsidian's vault adapter expects. From `obsidian-kit` 0.27.0
+  (`pure/vault-path.ts`).
+
 ## [0.3.3] — 2026-08-14
 
 ### Added

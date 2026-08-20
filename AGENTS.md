@@ -23,10 +23,12 @@ Abbruch. Desktop **und** iOS/iPad (`isDesktopOnly: false`) erzeugen echte Vektor
 
 - Kein Electron-/Node-API im Laufzeitpfad → mobil-tauglich. Nur Obsidian-API +
   Browser-APIs.
-- **Pure Engine vendored:** `src/vendor/kit/pdf/` ist die pure PDF-Engine aus
-  `obsidian-kit@0.8.0` (Layout, Metrics, Writer, IR) — Obsidian-frei, per
-  `tools/`-Sync-Skript aus dem Kit übernommen, nicht von Hand editiert. Änderungen an der
-  Engine gehören stromaufwärts ins Kit, nicht hier.
+- **Pure Engine vendored:** `src/vendor/kit/pdf/` ist die pure PDF-Engine aus dem Kit
+  (Layout, Metrics, Writer, IR) — Obsidian-frei, per `tools/sync-kit.sh` übernommen, nicht von
+  Hand editiert. Änderungen an der Engine gehören stromaufwärts ins Kit, nicht hier. **Den
+  aktuellen Stand nennt `src/vendor/kit/VENDOR.json`, nicht diese Zeile** (sie hing bis
+  2026-08-20 auf `@0.8.0` fest, während der Vendor längst weitergezogen war — eine Versionsnummer
+  in der Prosa altert still).
 - **DOM→IR-Seam:** `src/vendor/kit/pdf/dom-to-ir.ts` wandelt Obsidians gerenderten Markdown-DOM
   (`MarkdownRenderer.render`) in die pure Block/Inline-IR des Kits um — der einzige Ort,
   an dem Obsidian-DOM und pure Engine sich berühren. Nicht unterstützte Elemente werden zu
@@ -43,7 +45,8 @@ Abbruch. Desktop **und** iOS/iPad (`isDesktopOnly: false`) erzeugen echte Vektor
   (`collapsible.ts`, `folder-suggest.ts`, `settings_walker.ts` — letzteres importiert das
   vorige, beide müssen zusammen mitlaufen). Dieser Ordner steht als einziger Eintrag in
   `EXCLUDED` in `scripts/check-pure.mjs` — die Ausnahme ist damit benannt statt implizit.
-  Alles übrige im Vendor (`i18n`, `pdf`, `settings`) ist pure und bleibt geprüft. Die
+  Alles übrige im Vendor (`i18n`, `pdf`, `settings`, `vault-path`, `filename-template`) ist pure
+  und bleibt geprüft. Die
   Grenze verläuft bei **„pure", nicht bei „vendored"**: Ein neues gekoppeltes Kit-Modul gehört
   in diesen Ordner, nicht in eine weitere Skript-Ausnahme.
 - **Settings-Tab — zweigleisig, `getSettingDefinitions()` ist die eine Wahrheit** (seit 0.3.3):
@@ -87,6 +90,23 @@ Abbruch. Desktop **und** iOS/iPad (`isDesktopOnly: false`) erzeugen echte Vektor
   einem Schema ohne `{version}` denselben Namen endlos neu bauen. Im Anhang-Modus bleibt
   `{version}` wirkungslos — dort löst Obsidian Kollisionen selbst auf, zwei Zähler übereinander
   ergäben `Bericht v1 1.pdf`.
+  **Seit dem Kit-Anschluss (0.27.0) ist `src/core/filename.ts` ein Shim, keine Eigenimplementierung:**
+  Sanitisierung und Platzhalter-Auflösung liegen in `src/vendor/kit/filename-template.ts`
+  (dort aus yijing-oracle, paperize und letterhead zusammengeführt); lokal bleiben nur
+  `DEFAULT_FILENAME_TEMPLATE`, `FilenameValues` und `hasVersionPlaceholder` — die drei Dinge, die
+  im Kit bewusst keine Entsprechung haben. Wer die Regel ändern will, ändert sie im Kit und
+  re-vendort. ⚠️ **Die Zeichenklasse `INVALID` ist load-bearing** und steht byte-identisch in drei
+  veröffentlichten Plugins: ein zusätzliches oder fehlendes Zeichen benennt bestehende Exporte
+  **still** um. Die engere `sanitizeBase`-Klasse `[\\/:*?"<>|]` aus epub-exporter/apple-health/
+  paperless-storage gehört ausdrücklich **nicht** hierher.
+- **Vault-Pfade:** Ordner normalisieren, fügen und zerlegen kommt aus
+  `src/vendor/kit/vault-path.ts` (`normalizeVaultDir`/`joinVaultPath`/`vaultDirname`), nicht aus
+  lokalen Inline-Rechnungen. Beide Freitext-Felder des Settings-Tabs („Eigener Ordner", Schema)
+  reichen ihren Wert **roh** dorthin durch — die Normalisierung ist damit der Schutz und keine
+  Kosmetik. `vaultDirname` fängt zusätzlich die `-1`-Falle: `slice(0, lastIndexOf('/'))` schneidet
+  bei einer Datei in der Vault-Wurzel das letzte Zeichen des *Dateinamens* ab und legt daneben
+  einen Phantom-Ordner an. `src/obsidian/main.ts` baut den Anhang-Pfad weiterhin über Obsidians
+  `normalizePath` — anderer Mechanismus, bewusst nicht umgestellt.
 - **SDD-Artefakte liegen im Coding-Cockpit, nicht hier** (CORE-META-12/14 der Workspace-
   Konventionen): Specs/Plans tragen Arbeitskontext (Schwester-Repo-Interna, absolute Pfade,
   interne Doku-Referenzen), der in einem öffentlichen Repo niemandem nützt. Das Repo behält die
@@ -159,7 +179,7 @@ Einordnung: [`SECURITY.md`](https://github.com/johannes-kaindl/obsidian-paperize
 - `main.js` ist ein **Build-Artefakt** (`.gitignore`) — anders als bei Letterhead nicht
   committen. Der Release-Workflow baut es serverseitig aus dem getaggten Commit.
 - `tools/sync-kit.sh` ist der Vendoring-Sync gegen `obsidian-kit` — ein Aufruf zieht die pure
-  Schicht (`pdf/*.ts`, `i18n.ts`, `settings.ts`) **und** die obsidian-gekoppelte
+  Schicht (`pdf/*.ts`, `i18n.ts`, `settings.ts`, `vault-path.ts`, `filename-template.ts`) **und** die obsidian-gekoppelte
   (`collapsible.ts`, `folder-suggest.ts`, `settings_walker.ts`) nach, stempelt jede Datei mit
   der Kit-Version und schreibt beide `VENDOR.json`. Nie von Hand nachziehen. Die gekoppelte
   Schicht lief bis 2026-08-14 **nicht** mit, obwohl der Header von `collapsible.ts` genau das
