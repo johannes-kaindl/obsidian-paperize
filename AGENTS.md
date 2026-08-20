@@ -101,9 +101,14 @@ Abbruch. Desktop **und** iOS/iPad (`isDesktopOnly: false`) erzeugen echte Vektor
   paperless-storage gehört ausdrücklich **nicht** hierher.
 - **Vault-Pfade:** Ordner normalisieren, fügen und zerlegen kommt aus
   `src/vendor/kit/vault-path.ts` (`normalizeVaultDir`/`joinVaultPath`/`vaultDirname`), nicht aus
-  lokalen Inline-Rechnungen. Beide Freitext-Felder des Settings-Tabs („Eigener Ordner", Schema)
-  reichen ihren Wert **roh** dorthin durch — die Normalisierung ist damit der Schutz und keine
-  Kosmetik. `vaultDirname` fängt zusätzlich die `-1`-Falle: `slice(0, lastIndexOf('/'))` schneidet
+  lokalen Inline-Rechnungen. Das Freitext-Feld „Eigener Ordner" reicht seinen Wert **roh**
+  dorthin durch — die Normalisierung ist damit der Schutz und keine Kosmetik.
+  ⚠️ **Aber nur die des ORDNER-Anteils.** `joinVaultPath` hängt den Dateinamen unverändert an
+  (das sagt auch der Modulkopf des Kits: „KEIN Ersatz für das Säubern"). Der zweite Freitext-Weg
+  — das Schema-Feld — läuft deshalb **nicht** hier durch, sondern über
+  `src/core/filename.ts` → `src/vendor/kit/filename-template.ts`; `sanitizeBase`/`sanitizeFilename`
+  bleiben dafür zuständig und dürfen nicht mit dem Argument „macht doch `joinVaultPath`"
+  wegfallen. `vaultDirname` fängt zusätzlich die `-1`-Falle: `slice(0, lastIndexOf('/'))` schneidet
   bei einer Datei in der Vault-Wurzel das letzte Zeichen des *Dateinamens* ab und legt daneben
   einen Phantom-Ordner an. `src/obsidian/main.ts` baut den Anhang-Pfad weiterhin über Obsidians
   `normalizePath` — anderer Mechanismus, bewusst nicht umgestellt.
@@ -179,7 +184,8 @@ Einordnung: [`SECURITY.md`](https://github.com/johannes-kaindl/obsidian-paperize
 - `main.js` ist ein **Build-Artefakt** (`.gitignore`) — anders als bei Letterhead nicht
   committen. Der Release-Workflow baut es serverseitig aus dem getaggten Commit.
 - `tools/sync-kit.sh` ist der Vendoring-Sync gegen `obsidian-kit` — ein Aufruf zieht die pure
-  Schicht (`pdf/*.ts`, `i18n.ts`, `settings.ts`, `vault-path.ts`, `filename-template.ts`) **und** die obsidian-gekoppelte
+  Schicht (`pdf/*.ts`, `i18n.ts`, `settings.ts`, `vault-path.ts`, `filename-template.ts`)
+  **und** die obsidian-gekoppelte
   (`collapsible.ts`, `folder-suggest.ts`, `settings_walker.ts`) nach, stempelt jede Datei mit
   der Kit-Version und schreibt beide `VENDOR.json`. Nie von Hand nachziehen. Die gekoppelte
   Schicht lief bis 2026-08-14 **nicht** mit, obwohl der Header von `collapsible.ts` genau das
