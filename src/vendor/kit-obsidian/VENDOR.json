@@ -1,7 +1,7 @@
 {
   "source": "obsidian-kit",
-  "version": "0.26.1",
-  "sha": "c10f6f4",
+  "version": "0.27.0",
+  "sha": "548041b",
   "vendored": "collapsible.ts, folder-suggest.ts, settings_walker.ts",
   "note": "Verbatim snapshot der obsidian-GEKOPPELTEN Kit-Schicht. Never hand-edit. Re-vendor via tools/sync-kit.sh. Von check:pure ausgenommen (benannte EXCLUDED-Konstante in scripts/check-pure.mjs). settings_walker.ts importiert folder-suggest.ts — beide muessen zusammen mitlaufen."
 }

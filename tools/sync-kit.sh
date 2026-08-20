@@ -4,7 +4,13 @@ set -e
 
 KIT=../obsidian-kit
 VER=$(node -p "require('$KIT/package.json').version")
-SHA=$(git -C "$KIT" rev-parse --short HEAD)
+# Der Pin zeigt auf den TAG-Commit der Kit-Version, nicht auf den HEAD des Kit-Arbeitsbaums:
+# der HEAD traegt oft Commits nach dem Tag (am 2026-08-20 einen Doku-Commit, fbb42d4 statt
+# 548041b), und ein Pin auf einen Commit, den es unter keinem Tag gibt, ist nicht
+# nachvollziehbar. Der bisherige Pin c10f6f4 IST der Tag-Commit von 0.26.1 — das ist die hier
+# gelebte Konvention, die aber bis 2026-08-20 nur durch Handarbeit nach dem Lauf entstand.
+# Fallback auf HEAD, damit ein Lauf gegen einen noch ungetaggten Kit-Stand nicht abbricht.
+SHA=$(git -C "$KIT" rev-parse --short "$VER^{commit}" 2>/dev/null || git -C "$KIT" rev-parse --short HEAD)
 
 # Prepend the "do not hand-edit" marker to a vendored file. The kit sources carry no such
 # marker, so a plain `cp` silently drops it — which is how pdf/*.ts would have lost their
@@ -24,7 +30,7 @@ for f in "$KIT"/src/pure/pdf/*.ts; do
 done
 echo "vendored obsidian-kit@$VER/pure/pdf → src/vendor/kit/pdf"
 
-for m in i18n settings; do
+for m in i18n settings vault-path filename-template; do
   cp "$KIT/src/pure/$m.ts" "src/vendor/kit/$m.ts"
   stamp "src/vendor/kit/$m.ts" "src/pure/$m.ts"
   echo "vendored obsidian-kit@$VER/pure/$m.ts → src/vendor/kit/$m.ts"
@@ -59,7 +65,7 @@ cat > src/vendor/kit/VENDOR.json <<JSON
   "source": "obsidian-kit",
   "version": "$VER",
   "sha": "$SHA",
-  "vendored": "i18n.ts, settings.ts, pdf/*.ts",
+  "vendored": "i18n.ts, settings.ts, vault-path.ts, filename-template.ts, pdf/*.ts",
   "note": "Verbatim snapshot. Never hand-edit. Re-vendor via tools/sync-kit.sh. Seit 0.22.0 laufen pdf/layout.ts und pdf/options.ts mit, statt separat nachhinkend gepinnt zu sein. obsidian/collapsible.ts liegt in ../kit-obsidian/, siehe dortige VENDOR.json."
 }
 JSON
