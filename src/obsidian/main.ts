@@ -4,7 +4,7 @@ import { DEFAULT_SETTINGS, PaperizeSettings, PaperizeSettingTab, settingsToOptio
 import { writePdf, resolveVersionedOutputPath } from './output';
 import { buildFilename } from '../core/filename';
 import { mergeSettings } from '../vendor/kit/settings';
-import { stripFrontmatter, deriveTitle } from '../core/prepare';
+import { stripFrontmatter, deriveTitle, leadingH1 } from '../core/prepare';
 import { buildMetadataEntries } from '../core/frontmatter';
 import { domToIrSync, resolveImages } from '../vendor/kit/pdf/dom-to-ir';
 import { extractCodeBlocks, parseCodePlaceholder } from '../vendor/kit/pdf/code-blocks';
@@ -104,7 +104,9 @@ export default class PaperizePlugin extends Plugin {
 
     const totalUnsupported = unsupportedCount + resolved.unsupportedAdded;
     const { date: dateStr, time: timeStr } = nowParts();
-    const options = settingsToOptions(this.settings, title, dateStr);
+    // Traegt die Notiz ihren Titel schon als eigene H1, wird er oben NICHT noch einmal
+    // gedruckt — sonst steht er zweimal auf Seite eins.
+    const options = settingsToOptions(this.settings, title, dateStr, leadingH1(body) !== null);
 
     // Re-surface frontmatter as a clean metadata block at the top (after the title).
     const blocks = resolved.blocks;

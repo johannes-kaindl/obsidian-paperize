@@ -59,14 +59,28 @@ export const DEFAULT_SETTINGS: PaperizeSettings = {
   headingKeepWithLines: 2,
 };
 
-// Map plugin settings + a resolved title/date into the pure engine's options.
-export function settingsToOptions(s: PaperizeSettings, title: string | null, dateStr?: string): LayoutOptions {
+/** Map plugin settings + a resolved title/date into the pure engine's options.
+ *
+ *  `titleInBody` says the note already carries the title as its own leading H1. The printed
+ *  title is then left out — otherwise the same words appear twice on page one, once as the
+ *  document title and once as the heading below it. Measured 2026-09-02 while shooting the
+ *  README's hero image: the duplication is what made the first take unusable, and it is what
+ *  every note with an H1 has looked like since 0.1.0.
+ *
+ *  The running footer keeps the title either way: there it is a page marker, not a repetition
+ *  — the heading it would repeat is on page one only. */
+export function settingsToOptions(
+  s: PaperizeSettings,
+  title: string | null,
+  dateStr?: string,
+  titleInBody = false,
+): LayoutOptions {
   return {
     page: { size: s.pageSize, marginMm: { top: s.marginMm, right: s.marginMm, bottom: s.marginMm, left: s.marginMm } },
     fonts: { body: s.fontChoice, baseSizePt: s.baseSizePt, lineHeight: s.lineHeight, headingScale: DEFAULT_OPTIONS.fonts.headingScale },
     colors: { ...DEFAULT_OPTIONS.colors },
     frame: {
-      title: s.showTitle ? title : null,
+      title: s.showTitle && !titleInBody ? title : null,
       pageNumbers: s.pageNumbers,
       runningHeaderFooter: s.runningHeaderFooter ? { position: 'footer', left: title || '', right: dateStr || '' } : null,
     },
@@ -232,7 +246,7 @@ export class PaperizeSettingTab extends PluginSettingTab {
       ] as unknown as SettingGroupItem[]),
 
       group('content', [
-        { name: t('settings.title.name'), control: { type: 'toggle', key: 'showTitle' } },
+        { name: t('settings.title.name'), desc: t('settings.title.desc'), control: { type: 'toggle', key: 'showTitle' } },
         { name: t('settings.frontmatter.name'), desc: t('settings.frontmatter.desc'), control: { type: 'toggle', key: 'showFrontmatter' } },
         { name: t('settings.pageNumbers.name'), control: { type: 'toggle', key: 'pageNumbers' } },
         { name: t('settings.footer.name'), control: { type: 'toggle', key: 'runningHeaderFooter' } },

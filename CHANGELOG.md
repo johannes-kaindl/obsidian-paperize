@@ -6,6 +6,17 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **The title is no longer printed twice.** A note that starts with its own heading keeps that
+  heading and gets **no** separate title line above it; a note without one still gets its
+  filename as the printed title. Until now `Title on top` (on by default) added the derived
+  title in both cases, so every note with a leading `# Heading` showed the same words twice on
+  page one. **This changes how existing notes with a leading heading are exported** — one line
+  less at the top. The running footer is unaffected: there the title is a page marker, not a
+  repetition. Found by looking at the first README screenshot, not by a test: the assertion
+  „a title is set" held, only the result was wrong.
+
 ### Fixed
 
 - **A filename template containing `{toString}` (or any other built-in JavaScript object member)

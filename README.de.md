@@ -82,6 +82,10 @@ Dann: Obsidian → Einstellungen → Community-Plugins → neu laden → **Paper
 Das Frontmatter wird im exportierten PDF standardmäßig entfernt (einstellbar). Die
 erste Überschrift (oder der Dateiname, falls keine vorhanden ist) wird zum Titel.
 
+Beginnt die Notiz mit einer **eigenen Überschrift**, bleibt diese stehen und darüber wird
+kein zusätzlicher Titel gedruckt — sonst stünde dasselbe zweimal auf Seite eins. Eine Notiz
+ohne führende Überschrift bekommt wie bisher ihren Dateinamen als gedruckten Titel.
+
 ## Konfiguration
 
 Der Einstellungen-Tab ist in fünf Sektionen gegliedert; **Ausgabe** steht vorn und enthält
@@ -106,7 +110,7 @@ gelassen hast.
 | Typografie | **Schriftgröße (pt)** | Basis-Textgröße, 6–24 pt. | 10,5 pt |
 | Typografie | **Zeilenabstand** | Vielfaches der Schriftgröße, 1,0–2,0. | 1,45 |
 | Typografie | **Maximale Bildbreite (%)** | Anteil der Textbreite, den ein Bild höchstens einnimmt, 25–100 %. | 100 % |
-| Inhalt | **Titel oben** | Zeigt einen abgeleiteten Titel (erste Überschrift oder Dateiname) oben im PDF. | An |
+| Inhalt | **Titel oben** | Druckt den Namen der Notiz als Titel über dem Inhalt. Entfällt, wenn die Notiz schon mit einer eigenen Überschrift beginnt — dann ist die Überschrift der Titel. | An |
 | Inhalt | **Frontmatter als Metadaten-Block zeigen** | Frontmatter erscheint als dezente Metadaten-Liste oben statt als roher YAML-Block. | An |
 | Inhalt | **Seitenzahlen** | Druckt eine Seitenzahl auf jede Seite. | An |
 | Inhalt | **Laufende Fußzeile** | Wiederholt Titel und heutiges Datum in der Fußzeile jeder Seite. | Aus |

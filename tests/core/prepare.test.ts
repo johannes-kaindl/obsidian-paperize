@@ -1,6 +1,6 @@
 // tests/core/prepare.test.ts
 import { describe, it, expect } from 'vitest';
-import { stripFrontmatter, deriveTitle } from '../../src/core/prepare';
+import { stripFrontmatter, deriveTitle, leadingH1 } from '../../src/core/prepare';
 
 describe('stripFrontmatter', () => {
   it('removes a leading frontmatter block', () => {
@@ -20,5 +20,20 @@ describe('deriveTitle', () => {
   });
   it('falls back to the note name when no leading H1', () => {
     expect(deriveTitle('Absatz zuerst\n# Später', 'Datei')).toBe('Datei');
+  });
+});
+
+describe('leadingH1', () => {
+  it('erkennt die eigene H1 der Notiz', () => {
+    expect(leadingH1('# Mein Titel\nrest')).toBe('Mein Titel');
+  });
+  it('liefert null, wenn der Text vor der ersten Ueberschrift beginnt', () => {
+    expect(leadingH1('Absatz zuerst\n# Spaeter')).toBeNull();
+  });
+  it('liefert null bei einer H2 an erster Stelle', () => {
+    expect(leadingH1('## Abschnitt\nrest')).toBeNull();
+  });
+  it('ueberspringt Leerzeilen vor der H1', () => {
+    expect(leadingH1('\n\n# Titel')).toBe('Titel');
   });
 });

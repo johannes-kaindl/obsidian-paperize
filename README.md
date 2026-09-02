@@ -80,6 +80,10 @@ Then: Obsidian → Settings → Community plugins → reload → enable **Paperi
 Frontmatter is stripped from the exported PDF by default (configurable). The first
 heading (or the note's filename, if there is none) becomes the title.
 
+If the note **starts with its own heading**, that heading stays where it is and no separate
+title is printed above it — otherwise the same words would appear twice on page one. A note
+without a leading heading gets its filename as the printed title, as before.
+
 ## Configuration
 
 The Settings tab is grouped into five sections; **Output** comes first and holds the
@@ -103,7 +107,7 @@ expanded and the rest remembering whether you left them open.
 | Typography | **Font size (pt)** | Base body text size, 6–24 pt. | 10.5 pt |
 | Typography | **Line height** | Multiple of the font size, 1.0–2.0. | 1.45 |
 | Typography | **Maximum image width (%)** | Share of the text width an image may occupy at most, 25–100 %. | 100 % |
-| Content | **Title on top** | Show a derived title (first heading, or filename) at the top of the PDF. | On |
+| Content | **Title on top** | Print the note's name as a title above the content. Skipped when the note already starts with its own heading — the heading is the title then. | On |
 | Content | **Show frontmatter as a metadata block** | Frontmatter appears as a subtle metadata list at the top instead of a raw YAML block. | On |
 | Content | **Page numbers** | Print a page number on every page. | On |
 | Content | **Running footer** | Repeat the title and today's date in the page footer. | Off |

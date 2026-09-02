@@ -98,6 +98,20 @@ describe('settingsToOptions', () => {
     expect(o.page.marginMm).toEqual({ top: 25, right: 25, bottom: 25, left: 25 });
     expect(o.frame.title).toBe('Doc');
   });
+  // Regression 2026-09-02: Traegt die Notiz ihren Titel schon als eigene H1, stand er im
+  // PDF zweimal auf Seite eins — einmal als Dokumenttitel, einmal als Ueberschrift. Aufgefallen
+  // ist es beim Ansehen des ersten README-Bildes, nicht in einem Test: die Zusicherung "der
+  // Titel wird gesetzt" war erfuellt, nur das Ergebnis war unschoen.
+  it('laesst den gedruckten Titel weg, wenn die Notiz ihn schon als H1 traegt', () => {
+    const o = settingsToOptions(DEFAULT_SETTINGS, 'Doc', undefined, true);
+    expect(o.frame.title).toBeNull();
+  });
+  it('behaelt den Titel in der laufenden Fusszeile, auch wenn er im Koerper steht', () => {
+    // Dort ist er ein Seitenmerkmal, keine Wiederholung — die H1 steht nur auf Seite eins.
+    const o = settingsToOptions({ ...DEFAULT_SETTINGS, runningHeaderFooter: true }, 'Doc', '2026-09-02', true);
+    expect(o.frame.title).toBeNull();
+    expect(o.frame.runningHeaderFooter).toMatchObject({ left: 'Doc', right: '2026-09-02' });
+  });
   it('nulls the title when showTitle is off', () => {
     const o = settingsToOptions({ ...DEFAULT_SETTINGS, showTitle: false }, 'Doc');
     expect(o.frame.title).toBeNull();

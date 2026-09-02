@@ -354,6 +354,18 @@ async function pruefeDomToIr(vaultDir: string): Promise<void> {
     ].join(' · '),
   );
 
+  // Regression 2026-09-02: Traegt die Notiz ihren Titel als eigene H1, wurde er im PDF
+  // ZWEIMAL gesetzt — einmal als Dokumenttitel, einmal als Ueberschrift. Kein Unit-Test sah
+  // das (die Zusicherung „ein Titel wird gesetzt" war erfuellt), gefunden hat es der Blick
+  // auf ein README-Bild. Gemessen wird deshalb die WIEDERHOLUNG, nicht die Existenz.
+  const h1 = 'Ueberschrift Eins MARKH1';
+  const male = text.split(h1).length - 1;
+  record(
+    'C9 Titel steht nicht doppelt, wenn die Notiz eine H1 hat',
+    male === 1,
+    male === 1 ? 'Ueberschrift genau einmal im PDF' : `Ueberschrift ${male}x im PDF — Dokumenttitel wiederholt die H1`,
+  );
+
   record('C8 Link-Text bleibt erhalten', text.includes('MARKLINK'), text.includes('MARKLINK') ? 'Linktext im PDF' : 'MARKLINK fehlt im PDF');
 }
 
