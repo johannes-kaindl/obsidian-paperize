@@ -9,6 +9,8 @@ Desktop, iPhone und iPad.
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue.svg)](https://github.com/johannes-kaindl/obsidian-paperize/blob/main/LICENSE)
 ![Platform](https://img.shields.io/badge/platform-Obsidian%20(Desktop%20%7C%20iOS)-lightgrey)
 
+<img src="https://raw.githubusercontent.com/johannes-kaindl/obsidian-paperize/main/docs/images/hero.png" alt="Links die Notiz in Obsidians Lesemodus, rechts das erzeugte PDF in Obsidians eigenem PDF-Betrachter — derselbe Inhalt als sauberes Dokument" width="600">
+
 ## Funktionen
 
 - **Ein Befehl, ein PDF:** **Aktive Notiz als PDF exportieren** ausführen (Befehlspalette
@@ -91,6 +93,8 @@ Einstellungs-Suche jede Zeile, und die Sektionen erscheinen dort als schlichte
 einklappbare Gruppen, mit *Ausgabe* aufgeklappt; die übrigen merken sich, ob du sie offen
 gelassen hast.
 
+<img src="https://raw.githubusercontent.com/johannes-kaindl/obsidian-paperize/main/docs/images/settings-output.png" alt="Die Sektion Ausgabe im Einstellungs-Tab: Ausgabeziel auf „neben der Notiz“ und das Feld Dateiname-Schema mit dem Standardwert {title}" width="600">
+
 | Sektion | Einstellung | Beschreibung | Standard |
 | --- | --- | --- | --- |
 | Ausgabe | **Ausgabeziel** | Wohin das PDF geschrieben wird: *neben der Notiz*, *Obsidian-Anhangordner*, *eigener Ordner* oder *Teilen/Öffnen außerhalb des Vaults*. | Neben der Notiz |
@@ -130,6 +134,8 @@ fällt auf `{title}` zurück.
 vorherige PDF. Mit ihm zählt jeder Export auf den nächsten freien Namen hoch (`Bericht v1.pdf`,
 `Bericht v2.pdf`, …). Im Modus *Anhangordner* ist er wirkungslos — dort löst Obsidian
 Kollisionen selbst auf.
+
+<img src="https://raw.githubusercontent.com/johannes-kaindl/obsidian-paperize/main/docs/images/filename-versions.png" alt="Der Datei-Explorer mit Quarterly Field Report v1.pdf und v2.pdf neben der Notiz, nachdem zweimal mit dem Schema {title} v{version} exportiert wurde" width="600">
 
 ## Funktionsweise
 

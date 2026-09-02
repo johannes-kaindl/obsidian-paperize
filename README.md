@@ -9,6 +9,8 @@ iPad.
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue.svg)](https://github.com/johannes-kaindl/obsidian-paperize/blob/main/LICENSE)
 ![Platform](https://img.shields.io/badge/platform-Obsidian%20(Desktop%20%7C%20iOS)-lightgrey)
 
+<img src="https://raw.githubusercontent.com/johannes-kaindl/obsidian-paperize/main/docs/images/hero.png" alt="The note in Obsidian's reading view on the left, the exported PDF open in Obsidian's own PDF viewer on the right, showing the same content as a clean document" width="600">
+
 ## Features
 
 - **One command, one PDF:** run **Export active note as PDF** (command palette or
@@ -88,6 +90,8 @@ row findable through the settings search — the sections appear as plain headin
 **older versions** the plugin draws the same sections as collapsible groups, with *Output*
 expanded and the rest remembering whether you left them open.
 
+<img src="https://raw.githubusercontent.com/johannes-kaindl/obsidian-paperize/main/docs/images/settings-output.png" alt="The Output section of the settings tab: output destination set to next to the note, and the filename scheme field showing the default {title}" width="600">
+
 | Section | Setting | Description | Default |
 | --- | --- | --- | --- |
 | Output | **Output destination** | Where the PDF is written: *next to the note*, *Obsidian attachment folder*, *custom folder*, or *share/open out of the vault*. | Next to the note |
@@ -126,6 +130,8 @@ typo shows up in the filename instead of silently disappearing; an empty scheme 
 **`{version}` is how you avoid overwriting.** Without it, exporting twice replaces the previous
 PDF. With it, each export counts up to the next free name (`Report v1.pdf`, `Report v2.pdf`, …).
 It has no effect in the *attachment folder* mode, where Obsidian resolves collisions itself.
+
+<img src="https://raw.githubusercontent.com/johannes-kaindl/obsidian-paperize/main/docs/images/filename-versions.png" alt="The file explorer showing Quarterly Field Report v1.pdf and v2.pdf side by side with the note, after exporting twice with the {title} v{version} scheme" width="600">
 
 ## How it works
 

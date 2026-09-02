@@ -255,6 +255,87 @@ async function hauptbereich(cdp: Cdp): Promise<Rect | null> {
   return boxOf(cdp, '.workspace-split.mod-root', PADDING);
 }
 
+/**
+ * Einen Ausschnitt aufnehmen, der **höher ist als jedes Fenster** — in Kacheln, im
+ * Renderer zusammengesetzt.
+ *
+ * Warum es diesen Umweg braucht, mit drei gemessenen Sackgassen davor: Obsidians
+ * Settings-Tab ist 1754 px hoch, der Bildschirm gibt 949 her. Es half **nicht**,
+ * (a) den Viewport zu emulieren (`withMetrics` vergrößert die Fläche nicht, die gezeichnet
+ * wird), (b) hineinzuzoomen (`webFrame.setZoomLevel(-4)` verkleinert das Layout, ändert
+ * aber nichts am Compositing-Surface) und (c) den Scroll-Container per DOM aufzuklappen,
+ * obwohl `capture()` `captureBeyondViewport: true` setzt. Alle drei ergaben dasselbe Bild:
+ * die obere Fensterhöhe mit Inhalt, darunter Schwarz. Der harte Grund ist Electron — die
+ * gezeichnete Fläche eines BrowserWindow IST das Fenster.
+ *
+ * Also: scrollen, mehrfach aufnehmen, stapeln. Der Versatz kommt aus dem **tatsächlichen**
+ * `scrollTop` nach jedem Schritt, nicht aus dem angeforderten: die letzte Kachel wird von
+ * Chromium gekappt und überlappt die vorige, und wer die angeforderte Position verrechnet,
+ * bekommt ein Bild mit einem doppelt gezeichneten Streifen in der Mitte.
+ */
+async function langerAusschnitt(cdp: Cdp, selector: string): Promise<Buffer | null> {
+  const mass = await cdp.evaluate<{ sichtbar: number; gesamt: number } | null>(`
+    const c = document.querySelector(${JSON.stringify(selector)});
+    if (!c) return null;
+    c.scrollTop = 0;
+    await new Promise((r) => setTimeout(r, 300));
+    return { sichtbar: c.clientHeight, gesamt: c.scrollHeight };
+  `);
+  if (!mass) {
+    console.log(`      · kein Element für "${selector}" — Ausschnitt nicht bestimmbar`);
+    return null;
+  }
+  console.log(`      · ${mass.gesamt} px Inhalt in ${mass.sichtbar} px Fenster — stapele`);
+  const kacheln = Math.max(1, Math.ceil(mass.gesamt / mass.sichtbar));
+  const teile: { b64: string; versatz: number }[] = [];
+
+  for (let i = 0; i < kacheln; i++) {
+    const pos = await cdp.evaluate<{ scrollTop: number; box: Rect } | null>(`
+      const c = document.querySelector(${JSON.stringify(selector)});
+      if (!c) return null;
+      // Weiches Scrollen abschalten, sonst liest die Messung gleich den ZIELWERT, während
+      // gezeichnet noch die alte Position steht — die Kacheln sitzen dann versetzt und im
+      // fertigen Bild fehlen ganze Zeilen (erste Fassung: unter "Page" standen die Zeilen
+      // von "Typography"). Und danach auf zwei Frames warten, nicht auf eine Pauschale.
+      c.style.scrollBehavior = "auto";
+      c.scrollTop = ${i} * ${mass.sichtbar};
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      await new Promise((r) => setTimeout(r, 400));
+      const r = c.getBoundingClientRect();
+      return { scrollTop: c.scrollTop, box: { x: r.x, y: r.y, width: r.width, height: r.height } };
+    `);
+    if (!pos) return null;
+    const png = await capture(cdp, pos.box, 2);
+    teile.push({ b64: png.toString('base64'), versatz: pos.scrollTop });
+  }
+
+  // Zusammensetzen im Renderer: dort liegt der einzige Canvas, den die Brücke ohnehin
+  // benutzt (`scaleTo`). Eine Bildbibliothek auf der Node-Seite wäre eine Abhängigkeit
+  // für dreißig Zeilen.
+  const b64 = await cdp.evaluate<string>(`
+    const teile = ${JSON.stringify(teile)};
+    const dpr = 2;
+    const bilder = await Promise.all(teile.map((t) => new Promise((ok, fail) => {
+      const im = new Image();
+      im.onload = () => ok(im);
+      im.onerror = () => fail(new Error("Kachel nicht ladbar"));
+      im.src = "data:image/png;base64," + t.b64;
+    })));
+    const breite = bilder[0].width;
+    const gesamt = Math.round(${mass.gesamt} * dpr);
+    const cv = document.createElement("canvas");
+    cv.width = breite;
+    cv.height = gesamt;
+    const ctx = cv.getContext("2d");
+    for (let i = 0; i < bilder.length; i++) {
+      const y = Math.round(teile[i].versatz * dpr);
+      ctx.drawImage(bilder[i], 0, y);
+    }
+    return cv.toDataURL("image/png").split(",")[1];
+  `);
+  return Buffer.from(b64, 'base64');
+}
+
 /* ------------------------------------------------------------------ Rezept */
 
 interface Shot {
@@ -262,7 +343,9 @@ interface Shot {
   klasse: 'hero' | 'feature' | 'detail';
   /** Braucht das Motiv Obsidians Einstellungen-Fenster (ab 1.13 ein eigenes Dokument)? */
   imSettingsFenster?: boolean;
-  run(cdp: Cdp): Promise<Rect | null>;
+  /** Ausschnitt zum Aufnehmen — oder ein **fertiges** Bild, wenn das Motiv größer ist als
+   *  jedes Fenster und aus mehreren Aufnahmen entsteht. */
+  run(cdp: Cdp): Promise<Rect | { png: Buffer } | null>;
 }
 
 const SHOTS: Shot[] = [
@@ -353,41 +436,11 @@ const SHOTS: Shot[] = [
     imSettingsFenster: true,
     async run(cdp) {
       if (!(await settingsTabBereit(cdp))) return null;
-      // Der ganze Tab passt in KEIN Fenster: gemessen braucht er 1754 px, der Bildschirm
-      // gibt 949 her (`setWindowSize` meldet die Kappung selbst). `withMetrics` ist hier
-      // der falsche Griff — es vergrößert den Viewport, nicht die gezeichnete Fläche, und
-      // das Ergebnis war ein Bild mit drei Sektionen und darunter einem schwarzen Streifen
-      // über die halbe Höhe. Der Zoom vergrößert dagegen wirklich, was hineinpasst:
-      // Level -4 (Faktor 0.48) stellt 1657 px Inhalt in 1967 px Fensterhöhe.
-      await setWindowSize(cdp, 1000, 1400);
-      await cdp.evaluate('require("electron").webFrame.setZoomLevel(-4); return true;');
-      await new Promise((r) => setTimeout(r, 900));
-      try {
-        // Der Ausschnitt richtet sich nach der LETZTEN GRUPPE, nicht nach der
-        // Containerhöhe: die ist im gezoomten Fenster größer als der Inhalt, und das Bild
-        // trüge unten wieder einen Streifen Leere.
-        return await cdp.evaluate<Rect | null>(`
-          const c = document.querySelector(".vertical-tab-content.is-active")
-            ?? document.querySelector(".vertical-tab-content");
-          if (!c) return null;
-          const gruppen = [...c.querySelectorAll(".setting-group")];
-          const letzte = gruppen[gruppen.length - 1];
-          if (!letzte) return null;
-          const oben = c.getBoundingClientRect();
-          const unten = letzte.getBoundingClientRect();
-          const p = ${PADDING};
-          return {
-            x: Math.max(0, oben.x - p),
-            y: Math.max(0, oben.y - p),
-            width: oben.width + p * 2,
-            height: (unten.bottom - oben.top) + p * 2,
-          };
-        `);
-      } finally {
-        // Zoom zurück — der Wirt gehört nicht dem Treiber, auch wenn er hier eine
-        // Wegwerf-Instanz ist. Ein Zoom, der stehen bleibt, verfälscht jedes Folgebild.
-        await cdp.evaluate('require("electron").webFrame.setZoomLevel(0); return true;');
-      }
+      // Der ganze Tab ist höher als jedes Fenster (1754 px Inhalt, 949 px Bildschirm), also
+      // in Kacheln aufnehmen und stapeln. Warum nicht anders — drei gemessene Sackgassen
+      // stehen im Kopf von `langerAusschnitt`.
+      const png = await langerAusschnitt(cdp, '.vertical-tab-content');
+      return png ? { png } : null;
     },
   },
 ];
@@ -558,7 +611,7 @@ async function main(): Promise<void> {
         fehlend.push(shot.name);
         continue;
       }
-      const png = await capture(ziel, box, 2);
+      const png = 'png' in box ? box.png : await capture(ziel, box, 2);
       const hinweis = await writeShot(ziel, shot.name, png, {
         outDir,
         captureWidth: CAPTURE_WIDTH,
