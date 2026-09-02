@@ -9,5 +9,5 @@
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
-  "include": ["scripts/gui-smoke.ts"]
+  "include": ["scripts/gui-smoke.ts", "scripts/shots.ts"]
 }

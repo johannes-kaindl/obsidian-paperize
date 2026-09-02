@@ -13,3 +13,4 @@ tools/sample-output.pdf
 
 # GUI-Smoke-Bundle (esbuild-Ausgabe, maintainer-lokal)
 .gui-smoke.mjs
+.shots.mjs
