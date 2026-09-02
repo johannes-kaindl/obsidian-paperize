@@ -494,7 +494,9 @@ async function pruefeSettings(cdp: Cdp): Promise<void> {
   // es mit dem 1.13-Fenster — beim ersten Lauf gegen 1.12.4 war das nachweislich falsch
   // (das Modal stand im Hauptfenster, nur der Selektor traf die Kit-Klasse nicht). Ein
   // Werkzeug, dessen Fehlschlag die falsche Ursache nennt, blockiert die Fehlersuche aktiv.
-  const tabDom = await cdp.evaluate<{ container: string; sektionen: number; zeilen: number; titel: string[] }>(`
+  const tabDom = await cdp.evaluate<{
+    container: string; version: string; collapsibles: number; headings: number; zeilen: number; titel: string[];
+  }>(`
     app.setting.open();
     app.setting.openTabById(${JSON.stringify(PLUGIN_ID)});
     await new Promise((r) => setTimeout(r, 700));
@@ -502,36 +504,57 @@ async function pruefeSettings(cdp: Cdp): Promise<void> {
     if (typeof activeDocument !== "undefined" && activeDocument && activeDocument !== document) {
       docs.push(["Einstellungen-Fenster", activeDocument]);
     }
+    // Die Version zur LAUFZEIT erfragen, nicht aus Info.plist: die App aktualisiert sich
+    // intern, ohne sie zu ändern (gemessen 2026-08-14: Datei sagte 1.12.4, es lief 1.13.7).
+    let version = "?";
+    try { version = require("electron").ipcRenderer.sendSync("version"); } catch (e) { version = "?"; }
     for (const [ort, doc] of docs) {
       const container = doc.querySelector(".vertical-tab-content.is-active") ?? doc.querySelector(".vertical-tab-content");
       if (!container) continue;
-      const sektionen = [...container.querySelectorAll(".okit-collapsible")];
+      const collapsibles = [...container.querySelectorAll(".okit-collapsible")];
+      const headings = [...container.querySelectorAll(".setting-item-heading")];
+      const quelle = collapsibles.length ? collapsibles : headings;
       return {
         container: ort,
-        sektionen: sektionen.length,
-        zeilen: container.querySelectorAll(".setting-item").length,
-        titel: sektionen.map((s) => (s.querySelector(".okit-collapsible-title")?.textContent ?? "?").trim()),
+        version,
+        collapsibles: collapsibles.length,
+        headings: headings.length,
+        // Ohne die Gruppen-Überschriften zählen: der native Renderer führt sie selbst als
+        // .setting-item, und ein Vergleich mit der Definitionszahl ginge sonst um 5 daneben.
+        zeilen: container.querySelectorAll(".setting-item:not(.setting-item-heading)").length,
+        titel: quelle.map((s) => (
+          (s.querySelector(".okit-collapsible-title") ?? s.querySelector(".setting-item-name") ?? s).textContent ?? "?"
+        ).trim()),
       };
     }
-    return { container: "", sektionen: 0, zeilen: 0, titel: [] };
+    return { container: "", version, collapsibles: 0, headings: 0, zeilen: 0, titel: [] };
   `);
 
   if (!tabDom.container) {
     skipped(
-      'F4/F5 Fallback-Pfad im Settings-Tab',
-      'kein .vertical-tab-content im verbundenen Fenster — ab 1.13 ist das Einstellungen-Fenster ein eigenes Dokument (attachTo("settings", port))',
+      'F4/F5 Settings-Tab im DOM',
+      'kein .vertical-tab-content im verbundenen Fenster — dann per attachTo("settings", port) auf das Fenster ohne Workspace verbinden',
     );
   } else {
+    // ⚠️ Zwei zulässige Ausgänge, nicht einer. Die Sektionsgliederung entsteht ab 1.13 durch
+    // den NATIVEN Renderer (`.setting-item-heading` je Gruppe, kein Collapse-Verhalten —
+    // `settings.ts` nennt das als bewusst akzeptierten Unterschied) und darunter durch den
+    // Fallback (`.okit-collapsible`). Ein Punkt, der nur die Collapsibles kennt, ist unter
+    // 1.13 dauerhaft rot bei intaktem Code — gemessen 2026-09-02: 0 Collapsibles, 5 native
+    // Headings, 23 Zeilen. Falsch ist allein das stumme Dritte: KEINE Gliederung, und genau
+    // das war der Ausgangsdefekt von 0.3.0 (17 Einstellungen ohne einen Abschnitts-Header,
+    // in der das vorhandene „Ausgabeziel" unauffindbar war).
+    const pfad = tabDom.collapsibles ? 'Fallback (einklappbar)' : 'nativ (Host zeichnet)';
     record(
-      'F4 Fallback zeichnet dieselben fünf Sektionen nach',
-      tabDom.sektionen === 5,
-      `${tabDom.sektionen} Sektion(en) im ${tabDom.container}: ${tabDom.titel.join(' · ') || 'keine'}`,
+      'F4 der Tab ist in fünf Sektionen gegliedert — auf einem der beiden Pfade',
+      Math.max(tabDom.collapsibles, tabDom.headings) === 5,
+      `Obsidian ${tabDom.version} · ${pfad} · ${tabDom.collapsibles} einklappbar / ${tabDom.headings} native Header im ${tabDom.container}: ${tabDom.titel.join(' · ') || 'keine'}`,
     );
     // Beide Pfade speisen sich aus `groups()`. Driften sie auseinander, ist genau das der
     // Defekt, den die Zweigleisigkeit riskiert — messbar an der Zeilenzahl.
     record(
-      'F5 Fallback zeigt so viele Zeilen wie die Definitionen führen',
-      defs !== null && tabDom.zeilen >= defs.items,
+      'F5 der gezeichnete Tab führt so viele Zeilen wie die Definitionen',
+      defs !== null && tabDom.zeilen === defs.items,
       defs === null ? `${tabDom.zeilen} Zeilen, Definitionen nicht lesbar` : `${tabDom.zeilen} Zeilen im Tab, ${defs.items} in den Definitionen`,
     );
   }
