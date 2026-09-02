@@ -76,7 +76,7 @@ Einstellungen in ein eigenes Dokument, das `notices()` und die F4-Messung über
 | **C** DOM→IR | Überschriften/Auszeichnung · Listen + Blockzitat · Tabelle · **Codeblöcke ohne Platzhalter im Fließtext** · **Task-Kästchen** · Bild als `/DCTDecode` · WinAnsi-Kodierung (Latin-1, ASCII-Ersatz, Unmappbares weggelassen) · Linktext |
 | **D** Degradation | Export läuft durch · **Nichtunterstütztes wird GEZÄHLT** · Text drumherum bleibt · Callout bleibt · leere Notiz meldet statt leerem PDF |
 | **E** Dateiname | `{version}` zählt hoch · ohne `{version}` wird überschrieben · eigener Ordner wird angelegt · verbotene Zeichen werden bereinigt (kein Phantom-Ordner) |
-| **F** Settings | `getSettingDefinitions()` liefert 5 Sektionen · 18 Einträge (= Settings-Suche) · 5 Slider statt Textfelder · Fallback zeichnet dieselben Sektionen · **beide Pfade zeigen gleich viele Zeilen** |
+| **F** Settings | `getSettingDefinitions()` liefert 5 Sektionen · 18 Einträge (= Settings-Suche) · 5 Slider statt Textfelder · **fünf Sektionen auf einem der beiden Pfade** (einklappbar < 1.13, nativ ab 1.13) · gezeichnete Zeilen = Definitionszeilen |
 
 **Nicht mechanisch geprüft und deshalb im Protokoll ausdrücklich genannt:** wie das PDF
 *aussieht* — Umbruchästhetik, Waisen-/Witwenwirkung, Grauwert, Bildqualität nach der
