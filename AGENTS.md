@@ -184,6 +184,22 @@ Einordnung: [`SECURITY.md`](https://github.com/johannes-kaindl/obsidian-paperize
 
 - `main.js` ist ein **Build-Artefakt** (`.gitignore`) — anders als bei Letterhead nicht
   committen. Der Release-Workflow baut es serverseitig aus dem getaggten Commit.
+- **`tools/sync-kit.sh` zieht aus ZWEI Quellen** (seit 2026-09-02): `obsidian-kit` liefert
+  `pdf/*.ts`, `vault-path.ts` und die obsidian-gekoppelte Schicht; **`code-kit`** liefert
+  `i18n.ts`, `settings.ts` und `filename-template.ts` — sie sind mit `obsidian-kit@2ab1bb5`
+  („domänenfreie pure-Teilmenge zieht nach code-kit") dorthin ausgezogen. Der Kopf jeder
+  vendorten Datei nennt ihre Herkunft, `VENDOR.json` führt beide Versionen.
+  ⚠️ **Vorher scheiterte das Skript still an dieser Umstellung, und der Schaden war größer
+  als der Abbruch:** `cp` fand die drei Module nicht, `set -e` riss den Rest mit — die
+  gekoppelte Schicht lief nicht mehr mit, und **beide `VENDOR.json` wurden nicht mehr
+  geschrieben**. Der Vendor-Stand behauptete danach 0.27.0, während `pdf/` schon auf 0.30.0
+  lag: eine Datei, die über sich selbst die Unwahrheit sagt, und der einzige Ort, an dem man
+  den Stand nachschlägt. Das Skript prüft jetzt **vor** dem ersten Kopieren, ob beide Quellen
+  da sind, und bricht mit einer Erklärung ab statt mitten im Lauf.
+  *Beim Umstellen gemessen: die drei Module sind in `code-kit@0.5.0` inhaltlich
+  byte-gleich mit dem, was vorher aus `obsidian-kit@0.27.0` kam — die `INVALID`-Zeichenklasse
+  also unverändert. Das ist keine Nebensächlichkeit: eine geänderte Klasse benennt bestehende
+  Exporte still um, und ein grünes Gate sagt darüber nichts.*
 - `tools/sync-kit.sh` ist der Vendoring-Sync gegen `obsidian-kit` — ein Aufruf zieht die pure
   Schicht (`pdf/*.ts`, `i18n.ts`, `settings.ts`, `vault-path.ts`, `filename-template.ts`)
   **und** die obsidian-gekoppelte

@@ -2,7 +2,8 @@
   "source": "obsidian-kit",
   "version": "0.30.0",
   "sha": "6e571a4",
-  "vendored": "pdf/*.ts, vault-path.ts (i18n.ts, settings.ts, filename-template.ts: nach code-kit ausgezogen, siehe Hinweis)",
-  "note": "Verbatim snapshot. Never hand-edit. Re-vendor via tools/sync-kit.sh. Seit 0.22.0 laufen pdf/layout.ts und pdf/options.ts mit, statt separat nachhinkend gepinnt zu sein. obsidian/collapsible.ts liegt in ../kit-obsidian/, siehe dortige VENDOR.json.",
-  "hinweis": "Kit 0.30.0 hat die domaenenfreie pure-Teilmenge nach code-kit ausgelagert (2ab1bb5, breaking). i18n.ts, settings.ts und filename-template.ts liegen deshalb nicht mehr unter obsidian-kit/src/pure/ — tools/sync-kit.sh laeuft dort ins Leere und bricht ab, bevor es VENDOR.json schreibt. Die hier liegenden Fassungen dieser drei sind der Stand 0.27.0 und funktionieren; die Quelle umzustellen ist eine eigene Aufgabe."
+  "vendored": "pdf/*.ts, vault-path.ts (aus obsidian-kit@0.30.0)",
+  "code_kit_version": "0.5.0",
+  "code_kit_vendored": "i18n.ts, settings.ts, filename-template.ts (aus code-kit@0.5.0)",
+  "note": "Verbatim snapshot aus ZWEI Quellen. Never hand-edit. Re-vendor via tools/sync-kit.sh. Seit obsidian-kit 2ab1bb5 liegt die domaenenfreie pure-Teilmenge in code-kit; der Kopf jeder Datei nennt ihre Herkunft. Seit 0.22.0 laufen pdf/layout.ts und pdf/options.ts mit. obsidian/collapsible.ts liegt in ../kit-obsidian/, siehe dortige VENDOR.json."
 }
