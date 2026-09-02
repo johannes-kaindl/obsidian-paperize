@@ -138,7 +138,8 @@ npm run typecheck   # tsc --noEmit
 npm test            # vitest run --passWithNoTests
 npm run check:pure  # verweigert 'obsidian'-Imports in src/core + src/vendor
 npm run build       # typecheck + esbuild --production → main.js (Build-Artefakt)
-npm run gate        # typecheck + test + check:pure + build — vor jedem Commit/Release
+npm run gate        # typecheck + typecheck:scripts + test + check:pure + lint + build
+npm run smoke:gui   # GUI-Smoke gegen ein LAUFENDES Obsidian (docs/SMOKE.md)
 npm run deploy      # build + cp main.js manifest.json styles.css → $OBSIDIAN_PLUGIN_DIR
 ```
 
@@ -193,6 +194,14 @@ Einordnung: [`SECURITY.md`](https://github.com/johannes-kaindl/obsidian-paperize
   alt). Ein Header, der auf ein Skript zeigt, das die Datei nicht kennt, ist keine Anweisung.
   Nach jedem Lauf `git status --short` prüfen und den **gesamten** Stand committen: das Skript
   meldet nur, was man angefordert hat, tut aber dasselbe für jeden Eintrag seiner Schleife.
+- **Ein grüner GUI-Smoke ist erst nach einer Gegenprobe eine Aussage — und die Gegenprobe
+  braucht ihrerseits einen Beleg, dass der Rückbau ankam.** `requireEigenerBuild` liefert den
+  nicht: es prüft, ob Vault-Build und Repo-Build **gleich** sind, nicht ob sie **aktuell** sind.
+  Bricht der Deploy im `tsc`-Schritt ab, bleibt der alte `main.js` in beiden liegen, der Guard
+  ist zufrieden, und der Smoke meldet 29/29 über Code, den man gerade kaputtgemacht hat
+  (gemessen 2026-09-02, zweimal hintereinander). Deshalb bei jeder Gegenprobe den sha1 von
+  `main.js` **vor und nach** dem Deploy vergleichen und bei Gleichstand abbrechen —
+  `docs/SMOKE.md` führt das Rezept.
 - **Das Export-DOM ist nicht das Preview-DOM.** `MarkdownRenderer.render` in einen *detached*
   Container (`createDiv()`) führt nicht alles aus, was die Live-Ansicht zeigt: Ein Callout-Icon
   bleibt dort ein nacktes `<svg width="16" height="16">` **ohne Klasse und ohne `aria-hidden`**,
