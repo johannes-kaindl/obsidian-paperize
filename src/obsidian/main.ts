@@ -95,6 +95,11 @@ export default class PaperizePlugin extends Plugin {
         pageBreakMarker: this.settings.pageBreakMarker,
         codes,
         resolvePlaceholder: (t) => parseCodePlaceholder(t, 'PAPERIZECODE'),
+        // Die Platzhalter stehen IM PDF und muessen deshalb der Oberflaechensprache folgen.
+        // Bis Kit 0.30.0 waren sie in der puren Engine deutsch festgeschrieben — ein
+        // englischer Nutzer bekam "[Formel]" ins Dokument. Die Engine kann kein i18n haben
+        // (sie ist Obsidian-frei), also reicht der Konsument die Texte durch.
+        placeholders: { math: t('pdf.placeholder.math'), graphic: t('pdf.placeholder.graphic') },
       });
       unsupportedCount = extracted.unsupportedCount;
       resolved = await resolveImages(extracted.blocks, extracted.imageEls, (src) => this.decodeImage(src, file));

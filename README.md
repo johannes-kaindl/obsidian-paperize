@@ -25,6 +25,8 @@ iPad.
   math, embeds, and other Obsidian-specific rendering) are simplified into plain text
   instead of breaking the export. A single summary notice tells you how many elements
   were simplified so you can check the source note if it matters.
+
+<img src="https://raw.githubusercontent.com/johannes-kaindl/obsidian-paperize/main/docs/images/degradation.png" alt="A note with a callout and a formula on the left, the exported PDF on the right showing the callout text and a [Formula] placeholder, with the notice reporting that one element was simplified" width="600">
 - **Four output destinations**, chosen in settings: next to the note (default), the
   Obsidian attachment folder, a custom folder, or share/open out of the vault (the
   mobile share sheet, or the OS default app on desktop).

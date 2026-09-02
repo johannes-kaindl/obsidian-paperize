@@ -548,7 +548,13 @@ async function main(): Promise<void> {
     try { version = require("electron").ipcRenderer.sendSync("version"); } catch (e) { /* egal */ }
     return {
       version,
-      sprache: window.localStorage.getItem("language") || "en",
+      // NICHT localStorage: der Schluessel ist ungesetzt, solange niemand die Sprache
+      // ausdruecklich gewaehlt hat — Obsidian folgt dann der SYSTEMsprache. Ein Guard, der
+      // dieses null mit "en" auffuellt, ist gruen am Falschen: gemessen 2026-09-02 lief die
+      // Aufnahme so unter deutscher Oberflaeche durch, und im Bild stand "von 1" statt
+      // "of 1". documentElement.lang traegt die tatsaechlich gerenderte Sprache.
+      // (Keine Backticks in diesem Kommentar — er steht in einem Template-Literal.)
+      sprache: document.documentElement.lang || "?",
       pluginAn: !!app.plugins.plugins[${JSON.stringify(PLUGIN_ID)}],
     };
   `);

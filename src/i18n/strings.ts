@@ -16,6 +16,11 @@ export const EN: Record<string, string> = {
   "notice.nothingToExport": "Nothing to export.",
   "notice.simplified": "PDF created. {0} element(s) were simplified (e.g. callouts, math).",
   "notice.saved": "PDF saved: {0}",
+  // Platzhalter fuer Elemente, die die Core-14-Engine nicht zeichnen kann. Sie stehen IM PDF,
+  // nicht in der Oberflaeche — und waren bis Kit 0.30.0 dort deutsch festgeschrieben, auch fuer
+  // englische Nutzer (gefunden 2026-09-02 auf einem README-Screenshot).
+  "pdf.placeholder.math": "[Formula]",
+  "pdf.placeholder.graphic": "[Graphic]",
 
   // settings — sections
   "settings.section.output": "Output",
@@ -76,6 +81,8 @@ export const DE: Record<string, string> = {
   "notice.nothingToExport": "Nichts zu exportieren.",
   "notice.simplified": "PDF erstellt. {0} Element(e) wurden vereinfacht dargestellt (z.B. Callouts, Mathe).",
   "notice.saved": "PDF gespeichert: {0}",
+  "pdf.placeholder.math": "[Formel]",
+  "pdf.placeholder.graphic": "[Grafik]",
 
   // settings — sections
   "settings.section.output": "Ausgabe",

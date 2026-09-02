@@ -8,6 +8,13 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- **The `[Formula]` / `[Graphic]` placeholders now follow the interface language.** They are
+  printed *inside the PDF* for elements the Core-14 engine cannot draw, and until now they
+  were hard-coded in German in the vendored engine — an English user got `[Formel]` in their
+  document. The pure engine cannot carry translations (it is Obsidian-free by design), so
+  since `obsidian-kit@0.30.0` it takes them as an option and the plugin supplies them from
+  its own catalogue. Found on a README screenshot, not by a test.
+
 - **The title is no longer printed twice.** A note that starts with its own heading keeps that
   heading and gets **no** separate title line above it; a note without one still gets its
   filename as the printed title. Until now `Title on top` (on by default) added the derived

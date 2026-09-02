@@ -167,6 +167,8 @@ PDF dargestellt, der Export läuft immer durch. Nach dem Export meldet eine Noti
 viele Elemente auf diese Weise vereinfacht wurden, damit du weißt, wann sich ein
 Abgleich mit der Notiz lohnt.
 
+<img src="https://raw.githubusercontent.com/johannes-kaindl/obsidian-paperize/main/docs/images/degradation.png" alt="Links eine Notiz mit Callout und Formel, rechts das erzeugte PDF mit dem Callout-Text und einem Platzhalter für die Formel, dazu die Notice über ein vereinfachtes Element" width="600">
+
 ## Schriften & die Core-14-Grenze
 
 Paperize nutzt ausschließlich die **Adobe-Core-14-PDF-Standardschriften** (die
