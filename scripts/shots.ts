@@ -289,25 +289,49 @@ async function langerAusschnitt(cdp: Cdp, selector: string): Promise<Buffer | nu
   const kacheln = Math.max(1, Math.ceil(mass.gesamt / mass.sichtbar));
   const teile: { b64: string; versatz: number }[] = [];
 
+  // Der Versatz kommt aus der GEMESSENEN Position eines Ankerelements, nicht aus `scrollTop`.
+  //
+  // Warum: die erste Fassung rechnete mit dem `scrollTop`, den der Container nach dem Setzen
+  // meldete — und stapelte trotzdem versetzt; im Ergebnis fehlten ganze Einstellungszeilen,
+  // während unter „Page" die Zeilen von „Typography" standen. Der gemeldete Wert war dabei
+  // nicht falsch, er war nur der falsche Bezugspunkt: zwischen „Container hat gescrollt" und
+  // „der Inhalt steht an dieser Stelle" liegt alles, was Obsidian intern nachkorrigiert.
+  //
+  // Ein Anker beantwortet die Frage direkt: dasselbe Element wird in jeder Kachel gesucht,
+  // und die Differenz seiner Bildschirmposition IST der Versatz. Genommen wird die ERSTE
+  // Gruppe, weil sie in jeder Kachel im DOM liegt (auch außerhalb des sichtbaren Bereichs —
+  // `getBoundingClientRect` liefert dann negative Werte, und genau die werden gebraucht).
   for (let i = 0; i < kacheln; i++) {
-    const pos = await cdp.evaluate<{ scrollTop: number; box: Rect } | null>(`
+    const pos = await cdp.evaluate<{ ankerY: number; box: Rect } | null>(`
       const c = document.querySelector(${JSON.stringify(selector)});
       if (!c) return null;
-      // Weiches Scrollen abschalten, sonst liest die Messung gleich den ZIELWERT, während
-      // gezeichnet noch die alte Position steht — die Kacheln sitzen dann versetzt und im
-      // fertigen Bild fehlen ganze Zeilen (erste Fassung: unter "Page" standen die Zeilen
-      // von "Typography"). Und danach auf zwei Frames warten, nicht auf eine Pauschale.
+      // Weiches Scrollen abschalten, sonst misst man während der Animation.
       c.style.scrollBehavior = "auto";
       c.scrollTop = ${i} * ${mass.sichtbar};
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
       await new Promise((r) => setTimeout(r, 400));
+      const anker = c.querySelector(".setting-group");
+      if (!anker) return null;
       const r = c.getBoundingClientRect();
-      return { scrollTop: c.scrollTop, box: { x: r.x, y: r.y, width: r.width, height: r.height } };
+      return {
+        ankerY: anker.getBoundingClientRect().top,
+        box: { x: r.x, y: r.y, width: r.width, height: r.height },
+      };
     `);
-    if (!pos) return null;
+    if (!pos) {
+      console.log(`      · Kachel ${i}: Anker (.setting-group) nicht gefunden`);
+      return null;
+    }
     const png = await capture(cdp, pos.box, 2);
-    teile.push({ b64: png.toString('base64'), versatz: pos.scrollTop });
+    teile.push({ b64: png.toString('base64'), versatz: pos.ankerY });
   }
+
+  // Die Anker-Position ist absteigend (der Anker wandert beim Scrollen nach oben, ins
+  // Negative). Der Versatz einer Kachel gegenüber der ersten ist also die DIFFERENZ —
+  // positiv, weil er nach unten zeigt.
+  const basis = teile[0]?.versatz ?? 0;
+  for (const t of teile) t.versatz = basis - t.versatz;
+  console.log(`      · Versätze aus Anker: ${teile.map((t) => Math.round(t.versatz)).join(', ')} px`);
 
   // Zusammensetzen im Renderer: dort liegt der einzige Canvas, den die Brücke ohnehin
   // benutzt (`scaleTo`). Eine Bildbibliothek auf der Node-Seite wäre eine Abhängigkeit

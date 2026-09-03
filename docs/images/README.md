@@ -98,9 +98,23 @@ Ergebnis fehlten ganze Einstellungszeilen, während unter „Page" die Zeilen vo
 „Typography" standen. Ein Bild, das die Oberfläche falsch wiedergibt, ist schlechter als
 keines.
 
-Der Ausweg für einen späteren Anlauf ist vermutlich, den Versatz nicht aus `scrollTop` zu
-nehmen, sondern aus der **gemessenen Position eines Ankerelements** in jeder Kachel — dann
-ist er unabhängig davon, ob und wann der Container tatsächlich gescrollt hat.
+**Fünfter Anlauf am 2026-09-03: der Anker-Versatz ist gebaut, hat die vermutete Ursache
+aber widerlegt.** `langerAusschnitt` nimmt den Versatz jetzt aus der gemessenen Position
+einer `.setting-group` statt aus `scrollTop` — und liefert damit **korrekte** Werte
+(0, 670, 1117 px bei 1786 px Inhalt; die dritte Kachel ist sauber gekappt). Das Bild ist
+trotzdem falsch zusammengesetzt: unter „Page" stehen weiterhin die Zeilen von
+„Typography", ganze Einstellungen fehlen.
+
+Damit ist die Diagnose eine andere geworden: **es liegt nicht am Versatz beim
+Zusammensetzen, sondern daran, dass die Aufnahme den gescrollten Zustand des inneren
+Containers nicht zeigt.** `Page.captureScreenshot` mit `clip` fotografiert offenbar nicht,
+was nach dem Setzen von `container.scrollTop` sichtbar ist. Wer den nächsten Anlauf fährt,
+sollte dort ansetzen und nicht wieder am Stapeln — die zwei naheliegenden Proben sind:
+eine Kachel einzeln aufnehmen und **ansehen**, ob sie überhaupt den erwarteten Bereich
+zeigt, und `Element.scrollIntoView()` statt `scrollTop` versuchen.
+
+Der Anker-Code bleibt im Treiber: er ist nachweislich besser als der `scrollTop`-Versatz
+und wird bei der Lösung gebraucht. Nur löst er das Problem nicht allein.
 
 Die Aussage „der Tab ist in fünf Sektionen gegliedert" trägt vorerst die Tabelle in der
 README, und `settings-output.png` zeigt die wichtigste Sektion.
