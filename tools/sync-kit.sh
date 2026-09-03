@@ -34,18 +34,36 @@ stamp() { # stamp <vendored-file> <kit-relative-path> [<quelle> <version>]
   mv "$1.tmp" "$1"
 }
 
+# Ein pures Modul kann in drei Schichten liegen. Statt fester Zuordnung wird gesucht — die
+# naechste Umschichtung im Kit soll dieses Skript nicht wieder toeten, sondern nur einen
+# anderen Fundort ergeben. (Die erste Fassung dieses Fixes verdrahtete die Zuordnung fest;
+# beim Sweep durch die Nachbar-Repos hat sich die Suche als die haltbarere Form erwiesen —
+# in vim-dojo lagen zehn Module in zwei verschiedenen Schichten.)
+# Ausgabe: <pfad>|<quelle>|<quell-relativer-pfad>|<version>
+quelle_fuer() {
+  for kandidat in \
+    "$KIT/src/pure/$1.ts|obsidian-kit|src/pure/$1.ts|$VER" \
+    "$CODE_KIT/src/ts/pure/$1.ts|code-kit|src/ts/pure/$1.ts|$CODE_VER" \
+    "$CODE_KIT/src/ts/web/$1.ts|code-kit|src/ts/web/$1.ts|$CODE_VER"; do
+    if [ -f "${kandidat%%|*}" ]; then printf '%s\n' "$kandidat"; return 0; fi
+  done
+  return 1
+}
+
 # Eine fehlende Quelle ist ein Aufbaufehler und wird als solcher gemeldet — nicht als
-# `cp: No such file` mitten im Lauf. Wer das Skript fährt, soll VOR dem ersten Kopieren
-# wissen, ob es vollständig laufen kann.
-for verlangt in "$KIT/src/pure/pdf" "$KIT/src/pure/vault-path.ts" "$KIT/src/obsidian" \
-                "$CODE_KIT/src/ts/pure/i18n.ts"; do
-  if [ ! -e "$verlangt" ]; then
-    echo "FEHLER: $verlangt fehlt." >&2
-    echo "  obsidian-kit liefert pdf/, vault-path.ts und die obsidian-gekoppelte Schicht;" >&2
-    echo "  code-kit liefert i18n.ts, settings.ts und filename-template.ts (seit 2ab1bb5)." >&2
-    echo "  Beide Repos muessen neben obsidian-plugins/ liegen." >&2
+# `cp: No such file` mitten im Lauf. Wer das Skript faehrt, soll VOR dem ersten Kopieren
+# wissen, ob es vollstaendig laufen kann.
+PURE_MODULE="vault-path i18n settings filename-template"
+for verlangt in "$KIT/src/pure/pdf" "$KIT/src/obsidian"; do
+  [ -e "$verlangt" ] || { echo "FEHLER: $verlangt fehlt (obsidian-kit)." >&2; exit 2; }
+done
+for m in $PURE_MODULE; do
+  quelle_fuer "$m" >/dev/null || {
+    echo "FEHLER: $m.ts liegt weder in $KIT/src/pure/ noch in $CODE_KIT/src/ts/{pure,web}/." >&2
+    echo "  Seit obsidian-kit 2ab1bb5 ist code-kit die Quelle der domaenenfreien Module;" >&2
+    echo "  beide Repos muessen neben obsidian-plugins/ liegen." >&2
     exit 2
-  fi
+  }
 done
 
 for f in "$KIT"/src/pure/pdf/*.ts; do
@@ -55,16 +73,15 @@ for f in "$KIT"/src/pure/pdf/*.ts; do
 done
 echo "vendored obsidian-kit@$VER/pure/pdf → src/vendor/kit/pdf"
 
-for m in vault-path; do
-  cp "$KIT/src/pure/$m.ts" "src/vendor/kit/$m.ts"
-  stamp "src/vendor/kit/$m.ts" "src/pure/$m.ts"
-  echo "vendored obsidian-kit@$VER/pure/$m.ts → src/vendor/kit/$m.ts"
-done
-
-for m in i18n settings filename-template; do
-  cp "$CODE_KIT/src/ts/pure/$m.ts" "src/vendor/kit/$m.ts"
-  stamp "src/vendor/kit/$m.ts" "src/ts/pure/$m.ts" "code-kit" "$CODE_VER"
-  echo "vendored code-kit@$CODE_VER/ts/pure/$m.ts → src/vendor/kit/$m.ts"
+for m in $PURE_MODULE; do
+  fund=$(quelle_fuer "$m")
+  pfad=$(printf '%s' "$fund" | cut -d'|' -f1)
+  quelle=$(printf '%s' "$fund" | cut -d'|' -f2)
+  rel=$(printf '%s' "$fund" | cut -d'|' -f3)
+  ver=$(printf '%s' "$fund" | cut -d'|' -f4)
+  cp "$pfad" "src/vendor/kit/$m.ts"
+  stamp "src/vendor/kit/$m.ts" "$rel" "$quelle" "$ver"
+  echo "vendored $quelle@$ver/$rel → src/vendor/kit/$m.ts"
 done
 
 # Obsidian-gekoppelte Kit-Module. Sie liegen bewusst NICHT unter src/vendor/kit/ (das ist die
