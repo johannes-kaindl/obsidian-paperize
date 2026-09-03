@@ -135,7 +135,7 @@ Abbruch. Desktop **und** iOS/iPad (`isDesktopOnly: false`) erzeugen echte Vektor
 
 ```bash
 npm run typecheck   # tsc --noEmit
-npm test            # vitest run --passWithNoTests
+npm test            # check-no-abs-paths + check-no-nul-bytes + vitest
 npm run check:pure  # verweigert 'obsidian'-Imports in src/core + src/vendor
 npm run build       # typecheck + esbuild --production → main.js (Build-Artefakt)
 npm run gate        # typecheck + typecheck:scripts + test + check:pure + lint + build
