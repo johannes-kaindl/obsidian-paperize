@@ -189,6 +189,12 @@ Einordnung: [`SECURITY.md`](https://github.com/johannes-kaindl/obsidian-paperize
   `i18n.ts`, `settings.ts` und `filename-template.ts` — sie sind mit `obsidian-kit@2ab1bb5`
   („domänenfreie pure-Teilmenge zieht nach code-kit") dorthin ausgezogen. Der Kopf jeder
   vendorten Datei nennt ihre Herkunft, `VENDOR.json` führt beide Versionen.
+  **Die Zuordnung ist nicht verdrahtet, sondern gesucht** (`quelle_fuer`, seit dem Sweep über
+  die Nachbar-Repos am 2026-09-03): ein Modul wird in `obsidian-kit/src/pure`,
+  `code-kit/src/ts/pure` und `code-kit/src/ts/web` nachgeschlagen, und **alle** Module werden
+  vor dem ersten Kopieren aufgelöst. Die nächste Umschichtung im Kit ergibt damit einen
+  anderen Fundort statt eines toten Skripts — in `vim-dojo` lagen zehn Module in zwei
+  verschiedenen Schichten, in `apple-health` eines davon unter `web/` statt `pure/`.
   ⚠️ **Vorher scheiterte das Skript still an dieser Umstellung, und der Schaden war größer
   als der Abbruch:** `cp` fand die drei Module nicht, `set -e` riss den Rest mit — die
   gekoppelte Schicht lief nicht mehr mit, und **beide `VENDOR.json` wurden nicht mehr
