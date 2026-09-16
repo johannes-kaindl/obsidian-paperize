@@ -10,7 +10,7 @@ KIT=../obsidian-kit
 # obsidian-gekoppelte Schicht lief nicht mehr mit, und BEIDE VENDOR.json wurden nicht mehr
 # geschrieben. Der Vendor-Stand blieb dadurch auf 0.27.0 stehen, waehrend pdf/ schon 0.30.0 war
 # — eine Datei, die ueber sich selbst die Unwahrheit sagt.
-CODE_KIT=../../code-kit
+CODE_KIT="${CODE_KIT_DIR:-../../libs/code-kit}"
 
 # CORE-META-22: gelesen wird aus einer FESTEN REF, nicht aus dem Arbeitsstand des
 # Nachbar-Repos. Ein `cp` aus dessen Worktree koppelt dieses Repo an einen fremden HEAD —
