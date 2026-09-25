@@ -98,6 +98,8 @@ expanded and the rest remembering whether you left them open.
 
 <img src="https://raw.githubusercontent.com/johannes-kaindl/obsidian-paperize/main/docs/images/settings-output.png" alt="The Output section of the settings tab: output destination set to next to the note, and the filename scheme field showing the default {title}" width="600">
 
+<a href="https://raw.githubusercontent.com/johannes-kaindl/obsidian-paperize/main/docs/images/settings-all.png"><img src="https://raw.githubusercontent.com/johannes-kaindl/obsidian-paperize/main/docs/images/thumbs/settings-all.png" width="380" alt="The whole settings tab with all five sections in one picture: Output, Page, Typography, Content and Pagination"></a><br><sub>The whole tab, all five sections (click for full size)</sub>
+
 | Section | Setting | Description | Default |
 | --- | --- | --- | --- |
 | Output | **Output destination** | Where the PDF is written: *next to the note*, *Obsidian attachment folder*, *custom folder*, or *share/open out of the vault*. | Next to the note |

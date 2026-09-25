@@ -99,6 +99,8 @@ gelassen hast.
 
 <img src="https://raw.githubusercontent.com/johannes-kaindl/obsidian-paperize/main/docs/images/settings-output.png" alt="Die Sektion Ausgabe im Einstellungs-Tab: Ausgabeziel auf „neben der Notiz“ und das Feld Dateiname-Schema mit dem Standardwert {title}" width="600">
 
+<a href="https://raw.githubusercontent.com/johannes-kaindl/obsidian-paperize/main/docs/images/settings-all.png"><img src="https://raw.githubusercontent.com/johannes-kaindl/obsidian-paperize/main/docs/images/thumbs/settings-all.png" width="380" alt="Der gesamte Einstellungs-Tab mit allen fünf Sektionen in einem Bild: Ausgabe, Seite, Typografie, Inhalt und Umbruch"></a><br><sub>Der ganze Tab, alle fünf Sektionen (Klick für Vollansicht)</sub>
+
 | Sektion | Einstellung | Beschreibung | Standard |
 | --- | --- | --- | --- |
 | Ausgabe | **Ausgabeziel** | Wohin das PDF geschrieben wird: *neben der Notiz*, *Obsidian-Anhangordner*, *eigener Ordner* oder *Teilen/Öffnen außerhalb des Vaults*. | Neben der Notiz |
