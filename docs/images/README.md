@@ -56,7 +56,7 @@ den vorigen Stand — und der Lauf meldet dabei Erfolg.
 
 ## Status
 
-**Vier von fünf Motiven stehen** (2026-09-02): `hero.png`, `degradation.png`,
+**Alle fünf Motive stehen** (`settings-all.png` seit 2026-09-25, Ursache der falschen Versätze unten). Stand 2026-09-02 waren es vier: `hero.png`, `degradation.png`,
 `filename-versions.png`, `settings-output.png`. Das fünfte ist **nicht misslungen,
 sondern an einer Werkzeuggrenze** — und die Gründe unten sind wertvoller, als die Bilder
 es gewesen wären.
@@ -125,3 +125,7 @@ Der Vertrag versprach für `settings-output.png` ursprünglich das **geöffnete*
 Ausgabeziel-Dropdown mit allen vier Zielen. Das ist mit CDP nicht aufnehmbar: Obsidians
 Dropdown ist ein natives `<select>`, seine geöffnete Liste ein OS-Menü, das in keinem
 Screenshot erscheint. Die Zeile oben sagt das jetzt, statt es zu versprechen.
+
+### `settings-all.png` — der Fehler saß im Maßstab, nicht im Versatz
+
+Die Kacheln waren richtig versetzt (der Anker-Versatz stimmte in jedem Lauf), aber beim Zusammensetzen galt ein festes `dpr = 2`. `capture(…, 2)` liefert auf einem Retina-Display jedoch 4 Pixel je CSS-Pixel (Geräte-Skalierung 2 mal `clip.scale` 2), die Kacheln lagen dadurch nur halb so weit auseinander, überlappten und ließen ganze Zeilen fehlen. Der Maßstab wird jetzt aus der Kachelbreite gemessen. Gefunden, indem eine einzelne Kachel aufgenommen und ihre Pixelmaße mit dem Layout verglichen wurden — nicht durch weiteres Drehen am Stapeln. Das Bild ist noch nicht in die README eingebettet (Klasse `detail`, klickbare Vorschau).

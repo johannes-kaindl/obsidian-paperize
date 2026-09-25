@@ -288,6 +288,7 @@ async function langerAusschnitt(cdp: Cdp, selector: string): Promise<Buffer | nu
   console.log(`      · ${mass.gesamt} px Inhalt in ${mass.sichtbar} px Fenster — stapele`);
   const kacheln = Math.max(1, Math.ceil(mass.gesamt / mass.sichtbar));
   const teile: { b64: string; versatz: number }[] = [];
+  let boxBreite = 0;
 
   // Der Versatz kommt aus der GEMESSENEN Position eines Ankerelements, nicht aus `scrollTop`.
   //
@@ -323,6 +324,7 @@ async function langerAusschnitt(cdp: Cdp, selector: string): Promise<Buffer | nu
       return null;
     }
     const png = await capture(cdp, pos.box, 2);
+    boxBreite = pos.box.width;
     teile.push({ b64: png.toString('base64'), versatz: pos.ankerY });
   }
 
@@ -338,7 +340,6 @@ async function langerAusschnitt(cdp: Cdp, selector: string): Promise<Buffer | nu
   // für dreißig Zeilen.
   const b64 = await cdp.evaluate<string>(`
     const teile = ${JSON.stringify(teile)};
-    const dpr = 2;
     const bilder = await Promise.all(teile.map((t) => new Promise((ok, fail) => {
       const im = new Image();
       im.onload = () => ok(im);
@@ -346,6 +347,12 @@ async function langerAusschnitt(cdp: Cdp, selector: string): Promise<Buffer | nu
       im.src = "data:image/png;base64," + t.b64;
     })));
     const breite = bilder[0].width;
+    // Der Massstab ist GEMESSEN (Pixelbreite der Kachel / CSS-Breite der Box), nicht
+    // angenommen: capture mit scale 2 liefert auf einem Retina-Display 4 Pixel je CSS-Pixel
+    // (Geraete-Skalierung 2 mal clip.scale 2), und ein festes dpr = 2 legte die Kacheln
+    // dann nur halb so weit auseinander — sie ueberlappten, ganze Zeilen fehlten (gemessen
+    // 2026-09-25; die Versaetze selbst waren immer richtig, siehe Task settings-all.png).
+    const dpr = breite / ${boxBreite};
     const gesamt = Math.round(${mass.gesamt} * dpr);
     const cv = document.createElement("canvas");
     cv.width = breite;
