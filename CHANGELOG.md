@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.4] — 2026-09-25
+
 ### Changed
 
 - **The `[Formula]` / `[Graphic]` placeholders now follow the interface language.** They are
