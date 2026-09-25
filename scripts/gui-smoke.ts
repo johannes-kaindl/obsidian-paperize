@@ -499,6 +499,18 @@ async function pruefeBilder(cdp: Cdp, vaultDir: string): Promise<void> {
   const n = da ? pdfBilder(readFileSync(join(vaultDir, 'Bilder.pdf'))) : 0;
   record('G1 Wikilink-Embed, Markdown-Bild und Inline-Bild landen als Bilder im PDF', n >= 3, da ? `${n} Bild(er) im PDF (erwartet ≥ 3)` : 'Bilder.pdf fehlt');
 
+  // Kit 0.42.0: ein Bild im Listenpunkt wird ein eigener Bildblock, in einer Tabellenzelle ein
+  // sichtbares "[Bild: alt]". Bis dahin verschwand beides still (nur ein Zaehler stieg).
+  await exportNote(cdp, 'Bilder-Liste.md');
+  const lDa = await warteAufDatei(join(vaultDir, 'Bilder-Liste.pdf'));
+  const lBytes = lDa ? readFileSync(join(vaultDir, 'Bilder-Liste.pdf')) : null;
+  const lText = lBytes ? pdfText(lBytes) : '';
+  record(
+    'G4 Bild im Listenpunkt wird Bildblock, Bild in der Tabellenzelle bleibt als Text sichtbar',
+    lBytes !== null && pdfBilder(lBytes) >= 1 && lText.includes('MARKPUNKT') && lText.includes('MARKZELLE') && /\[Bild: probe\.png\]|\[Image: probe\.png\]/.test(lText),
+    lBytes ? `${pdfBilder(lBytes)} Bild(er) im PDF · Zelle: ${/\[(Bild|Image): probe\.png\]/.test(lText) ? 'Platzhalter da' : 'FEHLT'}` : 'Bilder-Liste.pdf fehlt',
+  );
+
   const { server, port } = await starteBildServer();
   const remote = join(vaultDir, 'Bild-Remote.md');
   try {

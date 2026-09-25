@@ -106,7 +106,7 @@ export default class PaperizePlugin extends Plugin {
         // Bis Kit 0.30.0 waren sie in der puren Engine deutsch festgeschrieben — ein
         // englischer Nutzer bekam "[Formel]" ins Dokument. Die Engine kann kein i18n haben
         // (sie ist Obsidian-frei), also reicht der Konsument die Texte durch.
-        placeholders: { math: t('pdf.placeholder.math'), graphic: t('pdf.placeholder.graphic') },
+        placeholders: { math: t('pdf.placeholder.math'), graphic: t('pdf.placeholder.graphic'), image: t('pdf.placeholder.image') },
       });
       unsupportedCount = extracted.unsupportedCount;
       resolved = await resolveImages(extracted.blocks, extracted.imageEls, (src) => this.decodeImage(src, file));

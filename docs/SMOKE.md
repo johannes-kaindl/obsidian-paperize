@@ -142,3 +142,9 @@ deshalb grün, weil er `>=` prüfte. Jetzt `:not(.setting-item-heading)` und `==
 Gegenprobe der Umformulierung, zurück auf 1.12.4 (`.asar` entfernt): **29/29**, F4 meldet
 dort „Fallback (einklappbar) · 5 einklappbar / 0 native Header". Beide Pfade sind damit an
 ihrer jeweiligen Version belegt, nicht bloß behauptet.
+
+## G · Bilder
+
+Vier Prüfpunkte, alle am PDF gemessen (Zahl der `/Subtype /Image`-Objekte, nicht Dateigröße): G1 Wikilink-Embed, Markdown-Bild und Inline-Bild; G2 entferntes Bild über einen **treibereigenen** lokalen Server (kein Netz nötig); G3 ein Host, der nie antwortet — das PDF muss trotzdem entstehen, mit `[Bild: alt]`; G4 Bild im Listenpunkt und in der Tabellenzelle (Kit ≥ 0.42.0).
+
+**Nicht getestet, nicht grün:** WebP und AVIF (auf dem Entwicklungsrechner gab es keinen Encoder, das Fixture enthält sie nicht) — ob Obsidians Renderer sie in den Canvas bekommt, ist offen. Gemessen sind PNG, JPEG, GIF, BMP und SVG sowie ein 8000×6000-PNG.

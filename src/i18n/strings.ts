@@ -21,6 +21,7 @@ export const EN: Record<string, string> = {
   // englische Nutzer (gefunden 2026-09-02 auf einem README-Screenshot).
   "pdf.placeholder.math": "[Formula]",
   "pdf.placeholder.graphic": "[Graphic]",
+  "pdf.placeholder.image": "Image",
 
   // settings — sections
   "settings.section.output": "Output",
@@ -83,6 +84,7 @@ export const DE: Record<string, string> = {
   "notice.saved": "PDF gespeichert: {0}",
   "pdf.placeholder.math": "[Formel]",
   "pdf.placeholder.graphic": "[Grafik]",
+  "pdf.placeholder.image": "Bild",
 
   // settings — sections
   "settings.section.output": "Ausgabe",
