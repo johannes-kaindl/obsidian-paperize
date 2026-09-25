@@ -54,7 +54,9 @@
  * Typen: `tsconfig.scripts.json` (im `gate` über `npm run typecheck:scripts`).
  */
 
-import { existsSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { createServer, type Server } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { join } from 'node:path';
 import { cwd } from 'node:process';
 
@@ -465,6 +467,65 @@ async function pruefeDateiname(cdp: Cdp, vaultDir: string): Promise<void> {
   );
 }
 
+/** Bilder im PDF zaehlen: jedes eingebettete Bild ist ein `/Subtype /Image`-Objekt (JPEG,
+ *  `/DCTDecode`). Zaehlt Bloecke der IR 1:1, weil der Renderer je Bildblock genau eins schreibt. */
+function pdfBilder(bytes: Buffer): number {
+  return (bytes.toString('latin1').match(/\/Subtype\s*\/Image/g) ?? []).length;
+}
+
+/** Lokaler Bild-Server: `/probe.png` liefert das Fixture-Bild, `/haengt.png` antwortet nie.
+ *  Der Treiber bringt seinen Fake-Server selbst mit — ein Prüfpunkt gegen https://example.com
+ *  hinge sonst am Netz des Rechners und meldete bei Offline-Betrieb rot ohne Befund. */
+function starteBildServer(): Promise<{ server: Server; port: number }> {
+  const png = readFileSync(join(FIXTURE_DIR, 'notes/assets/probe.png'));
+  const server = createServer((req, res) => {
+    if (req.url === '/probe.png') { res.writeHead(200, { 'content-type': 'image/png' }); res.end(png); return; }
+    if (req.url === '/haengt.png') return; // nie antworten
+    res.writeHead(404); res.end();
+  });
+  return new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve({ server, port: (server.address() as AddressInfo).port })));
+}
+
+async function pruefeBilder(cdp: Cdp, vaultDir: string): Promise<void> {
+  console.log('\nG · Bilder');
+
+  // E4 laesst ein Schema mit Sonderzeichen stehen — die Ausgabedateien hiessen sonst `A_B_C Bilder.pdf`.
+  await setSettings(cdp, { outputMode: 'nextToNote', filenameTemplate: '{title}' });
+
+  // Messung 2026-09-25: Embeds stehen im losgelösten Container SOFORT als <img> da — ein Warten
+  // ist unnötig. Dieser Punkt fasst die drei Wege, die Nutzer tatsächlich schreiben, in ein PDF.
+  await exportNote(cdp, 'Bilder.md');
+  const da = await warteAufDatei(join(vaultDir, 'Bilder.pdf'));
+  const n = da ? pdfBilder(readFileSync(join(vaultDir, 'Bilder.pdf'))) : 0;
+  record('G1 Wikilink-Embed, Markdown-Bild und Inline-Bild landen als Bilder im PDF', n >= 3, da ? `${n} Bild(er) im PDF (erwartet ≥ 3)` : 'Bilder.pdf fehlt');
+
+  const { server, port } = await starteBildServer();
+  const remote = join(vaultDir, 'Bild-Remote.md');
+  try {
+    writeFileSync(remote, `# Remote\n\nMARKREMOTE\n\n![fern](http://127.0.0.1:${port}/probe.png)\n`);
+    await new Promise((r) => setTimeout(r, 1200)); // Obsidian muss die neue Datei indizieren
+    await exportNote(cdp, 'Bild-Remote.md');
+    const rDa = await warteAufDatei(join(vaultDir, 'Bild-Remote.pdf'));
+    const rn = rDa ? pdfBilder(readFileSync(join(vaultDir, 'Bild-Remote.pdf'))) : 0;
+    record('G2 entferntes Bild (http) wird über requestUrl geholt und eingebettet', rn >= 1, rDa ? `${rn} Bild(er) im PDF` : 'Bild-Remote.pdf fehlt');
+
+    // Ein Host, der nie antwortet, darf den Export nicht blockieren: Platzhalter statt Hänger.
+    writeFileSync(remote, `# Remote\n\nMARKHAENGT\n\n![haengt](http://127.0.0.1:${port}/haengt.png)\n`);
+    rmSync(join(vaultDir, 'Bild-Remote.pdf'), { force: true });
+    await new Promise((r) => setTimeout(r, 1200));
+    const t0 = Date.now();
+    await exportNote(cdp, 'Bild-Remote.md');
+    const hDa = await warteAufDatei(join(vaultDir, 'Bild-Remote.pdf'), 40_000);
+    const dauer = Math.round((Date.now() - t0) / 1000);
+    const text = hDa ? pdfText(readFileSync(join(vaultDir, 'Bild-Remote.pdf'))) : '';
+    record('G3 nie antwortender Bild-Host: PDF entsteht mit Platzhalter, kein Hänger', hDa && text.includes('MARKHAENGT') && text.includes('[Bild: haengt]'), hDa ? `nach ${dauer} s · Platzhalter ${text.includes('[Bild: haengt]') ? 'da' : 'FEHLT'}` : 'kein PDF nach 40 s');
+  } finally {
+    server.closeAllConnections();
+    server.close();
+    rmSync(remote, { force: true });
+  }
+}
+
 async function pruefeSettings(cdp: Cdp): Promise<void> {
   console.log('\nF · Settings — beide Render-Pfade aus einer Wahrheit');
 
@@ -669,6 +730,7 @@ async function main(): Promise<void> {
     await pruefeDomToIr(vaultDir);
     await pruefeDegradation(cdp, vaultDir);
     await pruefeDateiname(cdp, vaultDir);
+    await pruefeBilder(cdp, vaultDir);
     await pruefeSettings(cdp);
   } finally {
     // Vorwert zurück, auch nach Abbruch. Die Settings des Prüflings sind das Einzige, was

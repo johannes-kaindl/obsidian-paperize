@@ -26,6 +26,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **Images from the web (`![](https://…)`) are now embedded in the PDF instead of being replaced by `[Bild: …]`.** The export loaded them into a canvas straight from the remote host, which the browser refuses for images without CORS headers ("Tainted canvases may not be exported"); the image silently degraded to its placeholder. They are now fetched with Obsidian's `requestUrl` and rasterised from the received bytes. **Visible change:** notes with web images now show them in the PDF, and the export needs network access for those images (offline, the placeholder is printed as before).
+
+- **A remote image on a host that never answers can no longer freeze the export.** Rendering waited for every embed and loading had no limit; now rendering is cut off after 10 s and each image load after 15 s, and the placeholder is printed for what did not arrive. Found while measuring the report "images are not rendered": embeds (`![[image.png]]`, also with size, subfolder or spaces in the name) and local Markdown images were already fine — measured, not assumed.
+
 - **A filename template containing `{toString}` (or any other built-in JavaScript object member)
   wrote source code into the filename instead of leaving the placeholder alone.** Both READMEs
   promise that an unknown placeholder stays literal, and the template is a free text field in the

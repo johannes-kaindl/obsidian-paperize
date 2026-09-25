@@ -1,8 +1,9 @@
 // src/obsidian/main.ts
-import { Plugin, Notice, MarkdownRenderer, Component, TFile, normalizePath, getLanguage } from 'obsidian';
+import { Plugin, Notice, MarkdownRenderer, Component, TFile, normalizePath, getLanguage, requestUrl } from 'obsidian';
 import { DEFAULT_SETTINGS, PaperizeSettings, PaperizeSettingTab, settingsToOptions } from './settings';
 import { writePdf, resolveVersionedOutputPath } from './output';
 import { buildFilename } from '../core/filename';
+import { imageSourceKind, withTimeout, mimeForBytes } from '../core/image-source';
 import { mergeSettings } from '../vendor/kit/settings';
 import { stripFrontmatter, deriveTitle, leadingH1 } from '../core/prepare';
 import { buildMetadataEntries } from '../core/frontmatter';
@@ -12,6 +13,9 @@ import { imageToJpeg } from '../vendor/kit/pdf/image';
 import { renderPdf } from '../vendor/kit/pdf';
 import { pickLang, setLang, t } from '../vendor/kit/i18n';
 import { registerI18n } from '../i18n/strings';
+
+const IMAGE_TIMEOUT_MS = 15000;
+const RENDER_TIMEOUT_MS = 10000;
 
 // Obsidian UI language via the native getLanguage() API (App 1.8.7+). Wrapped defensively
 // so a test/window-less context (getLanguage throwing) falls back to English, not a crash.
@@ -90,7 +94,10 @@ export default class PaperizePlugin extends Plugin {
       // json_viewer on ```json) replaces the <pre> with its own widget DOM, and the original
       // code would be unrecoverable from it.
       const { markdown, codes } = extractCodeBlocks(body, 'PAPERIZECODE');
-      await MarkdownRenderer.render(this.app, markdown, holder, file.path, comp);
+      // render() resolves only after every embed settled — a remote image on a host that never
+      // answers would hold the export forever. After RENDER_TIMEOUT_MS the DOM built so far is
+      // used as is; the still-loading <img> falls through to decodeImage (own timeout → placeholder).
+      await withTimeout(MarkdownRenderer.render(this.app, markdown, holder, file.path, comp), RENDER_TIMEOUT_MS);
       const extracted = domToIrSync(holder, {
         pageBreakMarker: this.settings.pageBreakMarker,
         codes,
@@ -160,15 +167,31 @@ export default class PaperizePlugin extends Plugin {
     return normalizePath(`${file.parent ? file.parent.path : ''}/${baseName}.pdf`);
   }
 
-  // Decode an <img src> (app://, data:, or vault-relative) to JPEG bytes.
+  // Decode an <img src> (app://, data:, https:, or vault-relative) to JPEG bytes.
+  // A hanging load (offline, dead host) must not block the export: it yields null after
+  // IMAGE_TIMEOUT_MS and the caller writes the "[Bild: …]" placeholder instead.
   private async decodeImage(src: string, file: TFile): Promise<{ data: Uint8Array; wPx: number; hPx: number } | null> {
     try {
+      const kind = imageSourceKind(src);
       let url = src;
-      if (!/^(data:|https?:|app:|blob:)/.test(src)) {
+      let revoke: string | null = null;
+      if (kind === 'vault') {
         const dest = this.app.metadataCache.getFirstLinkpathDest(decodeURIComponent(src.replace(/^\.\//, '')), file.path);
         if (dest) url = this.app.vault.getResourcePath(dest);
+      } else if (kind === 'remote') {
+        // A remote <img> taints the canvas (no CORS), so fetch the bytes via requestUrl
+        // and hand imageToJpeg a same-origin blob URL.
+        const res = await withTimeout(requestUrl({ url: src, throw: false }), IMAGE_TIMEOUT_MS);
+        if (!res || res.status < 200 || res.status >= 300) return null;
+        const bytes = new Uint8Array(res.arrayBuffer);
+        url = URL.createObjectURL(new Blob([bytes], { type: mimeForBytes(res.headers['content-type'] ?? '', bytes) }));
+        revoke = url;
       }
-      return await imageToJpeg(url, () => createEl('canvas'), 1600);
+      try {
+        return await withTimeout(imageToJpeg(url, () => createEl('canvas'), 1600), IMAGE_TIMEOUT_MS);
+      } finally {
+        if (revoke) URL.revokeObjectURL(revoke);
+      }
     } catch (e) { console.error('Paperize: image decode failed', e); return null; }
   }
 }
