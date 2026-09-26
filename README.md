@@ -7,6 +7,8 @@ An Obsidian plugin that exports the active note as a clean, text-selectable **ve
 iPad.
 
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue.svg)](https://github.com/johannes-kaindl/obsidian-paperize/blob/main/LICENSE)
+[![Docs: CC BY-SA 4.0](https://img.shields.io/badge/docs-CC%20BY--SA%204.0-lightgrey.svg)](https://github.com/johannes-kaindl/obsidian-paperize/blob/main/LICENSE-DOCS)
+[![Release](https://img.shields.io/github/v/release/johannes-kaindl/obsidian-paperize?label=release)](https://github.com/johannes-kaindl/obsidian-paperize/releases)
 ![Platform](https://img.shields.io/badge/platform-Obsidian%20(Desktop%20%7C%20iOS)-lightgrey)
 
 <img src="https://raw.githubusercontent.com/johannes-kaindl/obsidian-paperize/main/docs/images/hero.png" alt="The note in Obsidian's reading view on the left, the exported PDF open in Obsidian's own PDF viewer on the right, showing the same content as a clean document" width="600">
@@ -79,7 +81,7 @@ Then: Obsidian → Settings → Community plugins → reload → enable **Paperi
    destination** below). If any elements were simplified during export, a notice tells
    you how many.
 
-Frontmatter is stripped from the exported PDF by default (configurable). The first
+The raw YAML frontmatter block is never printed; by default its fields appear as a small metadata list at the top instead (**Show frontmatter as a metadata block**, configurable). The first
 heading (or the note's filename, if there is none) becomes the title.
 
 If the note **starts with its own heading**, that heading stays where it is and no separate
@@ -202,6 +204,12 @@ npm run deploy      # build + copy manifest.json main.js styles.css → $OBSIDIA
 
 See [`AGENTS.md`](https://github.com/johannes-kaindl/obsidian-paperize/blob/main/AGENTS.md)
 for architecture notes and release process.
+
+## Documentation
+
+- [Documentation index](https://github.com/johannes-kaindl/obsidian-paperize/blob/main/docs/README.md) — all guides in one place.
+- [Getting started](https://github.com/johannes-kaindl/obsidian-paperize/blob/main/docs/getting-started.md) — from the install to your first PDF.
+- [Troubleshooting](https://github.com/johannes-kaindl/obsidian-paperize/blob/main/docs/troubleshooting.md) — what you see, what it means, what to do.
 
 ## License
 
