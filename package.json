@@ -1,6 +1,6 @@
 {
   "name": "obsidian-paperize",
-  "version": "0.3.4",
+  "version": "0.4.0",
   "description": "Clean Markdown to PDF for Obsidian",
   "main": "main.js",
   "scripts": {
