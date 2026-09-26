@@ -23,6 +23,12 @@ export const EN: Record<string, string> = {
   "pdf.placeholder.graphic": "[Graphic]",
   "pdf.placeholder.image": "Image",
 
+  // settings — help row (UI-STANDARD §8)
+  "settings.help.name": "Help",
+  "settings.help.desc": "Getting started, how-tos and troubleshooting",
+  "settings.help.openDocs": "Open documentation",
+  "settings.help.reportIssue": "Report an issue",
+
   // settings — sections
   "settings.section.output": "Output",
   "settings.section.page": "Page",
@@ -85,6 +91,12 @@ export const DE: Record<string, string> = {
   "pdf.placeholder.math": "[Formel]",
   "pdf.placeholder.graphic": "[Grafik]",
   "pdf.placeholder.image": "Bild",
+
+  // settings — help row (UI-STANDARD §8)
+  "settings.help.name": "Hilfe",
+  "settings.help.desc": "Erste Schritte, Anleitungen und Fehlersuche",
+  "settings.help.openDocs": "Dokumentation öffnen",
+  "settings.help.reportIssue": "Problem melden",
 
   // settings — sections
   "settings.section.output": "Ausgabe",

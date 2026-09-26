@@ -548,7 +548,8 @@ async function pruefeSettings(cdp: Cdp): Promise<void> {
     const tabs = app.setting.pluginTabs || [];
     const tab = tabs.find((t) => t.id === ${JSON.stringify(PLUGIN_ID)});
     if (!tab || typeof tab.getSettingDefinitions !== "function") return null;
-    const gruppen = tab.getSettingDefinitions();
+    // Das erste Element ist die Hilfe-Zeile (keine Gruppe) — F6 prueft sie; F1-F3 zaehlen Gruppen.
+    const gruppen = tab.getSettingDefinitions().filter((g) => g.type === "group");
     const items = [];
     for (const g of gruppen) for (const i of (g.items || [])) items.push(i);
     return {
@@ -580,7 +581,7 @@ async function pruefeSettings(cdp: Cdp): Promise<void> {
   // (das Modal stand im Hauptfenster, nur der Selektor traf die Kit-Klasse nicht). Ein
   // Werkzeug, dessen Fehlschlag die falsche Ursache nennt, blockiert die Fehlersuche aktiv.
   const tabDom = await cdp.evaluate<{
-    container: string; version: string; collapsibles: number; headings: number; zeilen: number; titel: string[];
+    container: string; version: string; collapsibles: number; headings: number; zeilen: number; titel: string[]; erste: string | null; knopf: string | null; bug: string | null;
   }>(`
     app.setting.open();
     app.setting.openTabById(${JSON.stringify(PLUGIN_ID)});
@@ -607,12 +608,15 @@ async function pruefeSettings(cdp: Cdp): Promise<void> {
         // Ohne die Gruppen-Überschriften zählen: der native Renderer führt sie selbst als
         // .setting-item, und ein Vergleich mit der Definitionszahl ginge sonst um 5 daneben.
         zeilen: container.querySelectorAll(".setting-item:not(.setting-item-heading)").length,
+        erste: container.querySelector(".setting-item")?.querySelector(".setting-item-name")?.textContent?.trim() ?? null,
+        knopf: container.querySelector(".setting-item")?.querySelector("button")?.textContent?.trim() ?? null,
+        bug: container.querySelector(".setting-item")?.querySelector(".extra-setting-button")?.getAttribute("aria-label") ?? null,
         titel: quelle.map((s) => (
           (s.querySelector(".okit-collapsible-title") ?? s.querySelector(".setting-item-name") ?? s).textContent ?? "?"
         ).trim()),
       };
     }
-    return { container: "", version, collapsibles: 0, headings: 0, zeilen: 0, titel: [] };
+    return { container: "", version, collapsibles: 0, headings: 0, zeilen: 0, titel: [], erste: null, knopf: null, bug: null };
   `);
 
   if (!tabDom.container) {
@@ -639,8 +643,16 @@ async function pruefeSettings(cdp: Cdp): Promise<void> {
     // Defekt, den die Zweigleisigkeit riskiert — messbar an der Zeilenzahl.
     record(
       'F5 der gezeichnete Tab führt so viele Zeilen wie die Definitionen',
-      defs !== null && tabDom.zeilen === defs.items,
-      defs === null ? `${tabDom.zeilen} Zeilen, Definitionen nicht lesbar` : `${tabDom.zeilen} Zeilen im Tab, ${defs.items} in den Definitionen`,
+      // +1: die Hilfe-Zeile ist keine Gruppen-Zeile und steht nicht in `defs.items`.
+      defs !== null && tabDom.zeilen === defs.items + 1,
+      defs === null ? `${tabDom.zeilen} Zeilen, Definitionen nicht lesbar` : `${tabDom.zeilen} Zeilen im Tab, ${defs.items} in den Gruppen + 1 Hilfe-Zeile`,
+    );
+    // Gemessen am DOM des offenen Tabs, nicht an den Definitionen — der Host kann umsortieren.
+    // Geklickt wird nicht (der Klick oeffnete einen Browser); die URLs deckt tests/obsidian/help-row.test.ts.
+    record(
+      'F6 die Hilfe-Zeile steht als erste Zeile oben im Settings-Tab',
+      (tabDom.erste === 'Help' || tabDom.erste === 'Hilfe') && !!tabDom.knopf && !!tabDom.bug,
+      `erste Zeile „${tabDom.erste}“, Knopf „${tabDom.knopf}“, bug-Tooltip „${tabDom.bug}“`,
     );
   }
 

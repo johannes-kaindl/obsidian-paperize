@@ -35,6 +35,14 @@ done
 # Fallback auf HEAD, damit ein Lauf gegen einen noch ungetaggten Kit-Stand nicht abbricht.
 SHA=$(git -C "$KIT" rev-parse --short "$VER^{commit}")
 
+# Eigener Pin, Absicht: help-setting.ts (Hilfe-Zeile, UI-STANDARD 8) kam mit Kit 0.43.0 und haengt
+# an keinem anderen Modul — die uebrigen Module bleiben auf KIT_REF (Vorlage epub-exporter 877eb2c).
+KIT_HELP_REF="${KIT_HELP_REF:-0.43.0}"
+git -C "$KIT" cat-file -e "$KIT_HELP_REF:src/obsidian/help-setting.ts" 2>/dev/null \
+  || { echo "FEHLER: src/obsidian/help-setting.ts fehlt in Ref $KIT_HELP_REF (KIT_HELP_REF setzen)." >&2; exit 2; }
+HELP_VER=$(git -C "$KIT" describe --tags --abbrev=0 "$KIT_HELP_REF")
+HELP_SHA=$(git -C "$KIT" rev-parse --short "$KIT_HELP_REF^{commit}")
+
 # Prepend the "do not hand-edit" marker to a vendored file. The kit sources carry no such
 # marker, so a plain `cp` silently drops it — which is how pdf/*.ts would have lost their
 # headers (found 2026-08-04: only the i18n branch stamped, the pdf branch did not). The header
@@ -132,13 +140,18 @@ for m in collapsible folder-suggest settings_walker; do
   echo "vendored obsidian-kit@$VER/obsidian/$m.ts → src/vendor/kit-obsidian/$m.ts"
 done
 
+hole "$KIT" "$KIT_HELP_REF" "src/obsidian/help-setting.ts" "src/vendor/kit-obsidian/help-setting.ts" || {
+  echo "FEHLER: $KIT_HELP_REF:src/obsidian/help-setting.ts nicht lesbar" >&2; exit 2; }
+stamp "src/vendor/kit-obsidian/help-setting.ts" "src/obsidian/help-setting.ts" obsidian-kit "$HELP_VER"
+echo "vendored obsidian-kit@$HELP_VER/obsidian/help-setting.ts → src/vendor/kit-obsidian/help-setting.ts"
+
 cat > src/vendor/kit-obsidian/VENDOR.json <<JSON
 {
   "source": "obsidian-kit",
   "version": "$VER",
   "sha": "$SHA",
-  "vendored": "collapsible.ts, folder-suggest.ts, settings_walker.ts",
-  "note": "Verbatim snapshot der obsidian-GEKOPPELTEN Kit-Schicht. Never hand-edit. Re-vendor via tools/sync-kit.sh. Von check:pure ausgenommen (benannte EXCLUDED-Konstante in scripts/check-pure.mjs). settings_walker.ts importiert folder-suggest.ts — beide muessen zusammen mitlaufen."
+  "vendored": "collapsible.ts, folder-suggest.ts, settings_walker.ts, help-setting.ts (Kit $HELP_VER, $HELP_SHA)",
+  "note": "Verbatim snapshot der obsidian-GEKOPPELTEN Kit-Schicht. Never hand-edit. Re-vendor via tools/sync-kit.sh. Von check:pure ausgenommen (benannte EXCLUDED-Konstante in scripts/check-pure.mjs). settings_walker.ts importiert folder-suggest.ts — beide muessen zusammen mitlaufen. help-setting.ts hat einen eigenen Pin (KIT_HELP_REF); version/sha oben gelten fuer die uebrigen Dateien."
 }
 JSON
 echo "kit-obsidian/VENDOR.json → $VER ($SHA)"

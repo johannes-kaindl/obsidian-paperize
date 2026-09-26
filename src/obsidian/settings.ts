@@ -8,6 +8,7 @@ import { DEFAULT_FILENAME_TEMPLATE } from '../core/filename';
 import { collapsibleSection } from '../vendor/kit-obsidian/collapsible';
 import type { CollapsibleStorage } from '../vendor/kit-obsidian/collapsible';
 import { renderSettingDefinitions, refreshSettingsTab } from '../vendor/kit-obsidian/settings_walker';
+import { helpDefinition } from './help-row';
 
 export type OutputMode = 'nextToNote' | 'attachmentFolder' | 'customFolder' | 'share';
 
@@ -151,7 +152,7 @@ export class PaperizeSettingTab extends PluginSettingTab {
   /* ── Deklarative API (Obsidian ≥ 1.13) — die eine Wahrheit ────────────── */
 
   getSettingDefinitions(): SettingDefinitionItem[] {
-    return this.groups();
+    return [helpDefinition(), ...this.groups()];
   }
 
   getControlValue(key: string): unknown {
@@ -178,6 +179,8 @@ export class PaperizeSettingTab extends PluginSettingTab {
   private renderFallback(): void {
     const { containerEl } = this;
     containerEl.empty();
+    // Hilfe-Zeile zuerst, vor jeder Sektion (UI-STANDARD §8).
+    renderSettingDefinitions(containerEl, [helpDefinition()], this, this.app);
     const storage: CollapsibleStorage = createCollapsibleStorage(this.plugin);
     for (const group of this.groups()) {
       const def = SECTIONS.find((d) => d.key === group.key);
