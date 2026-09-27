@@ -22,6 +22,7 @@ export const EN: Record<string, string> = {
   "pdf.placeholder.math": "[Formula]",
   "pdf.placeholder.graphic": "[Graphic]",
   "pdf.placeholder.image": "Image",
+  "pdf.placeholder.imageFailed": "[Image could not be embedded]",
 
   // settings — help row (UI-STANDARD §8)
   "settings.help.name": "Help",
@@ -91,6 +92,7 @@ export const DE: Record<string, string> = {
   "pdf.placeholder.math": "[Formel]",
   "pdf.placeholder.graphic": "[Grafik]",
   "pdf.placeholder.image": "Bild",
+  "pdf.placeholder.imageFailed": "[Bild konnte nicht eingebettet werden]",
 
   // settings — help row (UI-STANDARD §8)
   "settings.help.name": "Hilfe",

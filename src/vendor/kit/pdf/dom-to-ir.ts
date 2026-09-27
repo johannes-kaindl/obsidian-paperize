@@ -1,4 +1,4 @@
-// vendored from obsidian-kit@0.42.0, src/pure/pdf/dom-to-ir.ts — do not hand-edit; re-vendor via tools/sync-kit.sh
+// vendored from obsidian-kit@0.44.0, src/pure/pdf/dom-to-ir.ts — do not hand-edit; re-vendor via tools/sync-kit.sh
 import { Block, Inline, ListItem, Cell, Align } from './ir';
 import type { ExtractedCode } from './code-blocks';
 
@@ -25,13 +25,17 @@ const isDecorative = (el: Element): boolean =>
 // defaults stay German so a consumer that vendors a newer copy keeps the texts it had.
 // `image` is the bare word, not a bracketed text: a table cell shows `[image: alt]` or
 // `[image]`, so the word has to be composable with the alt text (since 0.42.0).
-export interface PdfPlaceholders { math?: string; graphic?: string; image?: string }
-type ResolvedPlaceholders = { math: string; graphic: string; image: string };
-const DEFAULT_PLACEHOLDERS: ResolvedPlaceholders = { math: '[Formel]', graphic: '[Grafik]', image: 'Bild' };
+// `imageFailed` is the full text `resolveImages` shows for an image without alt text that could
+// not be decoded (a bare `[image: alt]` would read wrong with nothing to name); with alt text
+// the `image` word is reused, so one options object serves `domToIrSync` and `resolveImages`.
+export interface PdfPlaceholders { math?: string; graphic?: string; image?: string; imageFailed?: string }
+type ResolvedPlaceholders = { math: string; graphic: string; image: string; imageFailed: string };
+const DEFAULT_PLACEHOLDERS: ResolvedPlaceholders = { math: '[Formel]', graphic: '[Grafik]', image: 'Bild', imageFailed: '[Bild konnte nicht eingebettet werden]' };
 const resolvePlaceholders = (ph?: PdfPlaceholders): ResolvedPlaceholders => ({
   math: ph?.math ?? DEFAULT_PLACEHOLDERS.math,
   graphic: ph?.graphic ?? DEFAULT_PLACEHOLDERS.graphic,
   image: ph?.image ?? DEFAULT_PLACEHOLDERS.image,
+  imageFailed: ph?.imageFailed ?? DEFAULT_PLACEHOLDERS.imageFailed,
 });
 
 // Graphically rendered elements — MathJax, Mermaid, bare SVG — carry no text node at all.
@@ -261,7 +265,9 @@ export async function resolveImages(
   blocks: Block[],
   imageEls: HTMLImageElement[],
   decode: (src: string) => Promise<{ data: Uint8Array; wPx: number; hPx: number } | null>,
+  placeholders?: PdfPlaceholders,
 ): Promise<{ blocks: Block[]; unsupportedAdded: number }> {
+  const ph = resolvePlaceholders(placeholders);
   let unsupportedAdded = 0;
   let imgIdx = 0;
   const mapBlock = async (b: Block): Promise<Block> => {
@@ -269,7 +275,7 @@ export async function resolveImages(
       const el = imageEls[imgIdx++];
       const src = el ? (el.getAttribute('src') || el.src || '') : '';
       const dec = src ? await decode(src) : null;
-      if (!dec) { unsupportedAdded++; return { type: 'unsupported', text: b.alt ? `[Bild: ${b.alt}]` : '[Bild konnte nicht eingebettet werden]' }; }
+      if (!dec) { unsupportedAdded++; return { type: 'unsupported', text: b.alt ? `[${ph.image}: ${b.alt}]` : ph.imageFailed }; }
       return { type: 'image', data: dec.data, wPx: dec.wPx, hPx: dec.hPx, alt: b.alt };
     }
     if (b.type === 'blockquote') return { type: 'blockquote', blocks: await Promise.all(b.blocks.map(mapBlock)) };

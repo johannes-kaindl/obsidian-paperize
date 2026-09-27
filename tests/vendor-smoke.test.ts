@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from 'vitest';
 vi.mock('obsidian', () => ({ setIcon: () => {} }));
 import { renderPdf, DEFAULT_OPTIONS } from '../src/vendor/kit/pdf';
 import { COLLAPSIBLE_CSS, resolveCollapsed } from '../src/vendor/kit-obsidian/collapsible';
-import { domToIrSync } from '../src/vendor/kit/pdf/dom-to-ir';
+import { domToIrSync, resolveImages } from '../src/vendor/kit/pdf/dom-to-ir';
 import { extractCodeBlocks, parseCodePlaceholder } from '../src/vendor/kit/pdf/code-blocks';
 
 describe('vendored kit engine', () => {
@@ -58,5 +58,17 @@ describe('vendored dom-to-ir + code-blocks', () => {
       resolvePlaceholder: (t) => parseCodePlaceholder(t, 'PAPERIZECODE'),
     });
     expect(blocks).toEqual([{ type: 'code', lang: 'js', text: 'x=1' }]);
+  });
+
+  // Welle 12: resolveImages nimmt seit Kit 0.44.0 dasselbe Optionsobjekt wie domToIrSync als
+  // vierten Parameter — der Platzhalter fuer ein nicht dekodierbares Bild ohne Alt-Text folgt
+  // damit der Oberflaechensprache statt dem deutschen Default der puren Engine.
+  it('shows the localized imageFailed text for an image without alt text that fails to decode', async () => {
+    const blocks = [{ type: 'image' as const, alt: '' }];
+    const imageEls = [document.createElement('img')];
+    const { blocks: out } = await resolveImages(blocks, imageEls, async () => null, {
+      image: 'Image', imageFailed: 'Image could not be embedded',
+    });
+    expect(out).toEqual([{ type: 'unsupported', text: 'Image could not be embedded' }]);
   });
 });

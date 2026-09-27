@@ -98,18 +98,24 @@ export default class PaperizePlugin extends Plugin {
       // answers would hold the export forever. After RENDER_TIMEOUT_MS the DOM built so far is
       // used as is; the still-loading <img> falls through to decodeImage (own timeout → placeholder).
       await withTimeout(MarkdownRenderer.render(this.app, markdown, holder, file.path, comp), RENDER_TIMEOUT_MS);
+      // Die Platzhalter stehen IM PDF und muessen deshalb der Oberflaechensprache folgen.
+      // Bis Kit 0.30.0 waren sie in der puren Engine deutsch festgeschrieben — ein
+      // englischer Nutzer bekam "[Formel]" ins Dokument. Die Engine kann kein i18n haben
+      // (sie ist Obsidian-frei), also reicht der Konsument die Texte durch. Seit Kit 0.44.0
+      // dient dasselbe Optionsobjekt auch resolveImages() (imageFailed fuer ein Bild ohne
+      // Alt-Text, das nicht dekodiert werden konnte).
+      const pdfPlaceholders = {
+        math: t('pdf.placeholder.math'), graphic: t('pdf.placeholder.graphic'),
+        image: t('pdf.placeholder.image'), imageFailed: t('pdf.placeholder.imageFailed'),
+      };
       const extracted = domToIrSync(holder, {
         pageBreakMarker: this.settings.pageBreakMarker,
         codes,
         resolvePlaceholder: (t) => parseCodePlaceholder(t, 'PAPERIZECODE'),
-        // Die Platzhalter stehen IM PDF und muessen deshalb der Oberflaechensprache folgen.
-        // Bis Kit 0.30.0 waren sie in der puren Engine deutsch festgeschrieben — ein
-        // englischer Nutzer bekam "[Formel]" ins Dokument. Die Engine kann kein i18n haben
-        // (sie ist Obsidian-frei), also reicht der Konsument die Texte durch.
-        placeholders: { math: t('pdf.placeholder.math'), graphic: t('pdf.placeholder.graphic'), image: t('pdf.placeholder.image') },
+        placeholders: pdfPlaceholders,
       });
       unsupportedCount = extracted.unsupportedCount;
-      resolved = await resolveImages(extracted.blocks, extracted.imageEls, (src) => this.decodeImage(src, file));
+      resolved = await resolveImages(extracted.blocks, extracted.imageEls, (src) => this.decodeImage(src, file), pdfPlaceholders);
     } finally {
       comp.unload();
     }

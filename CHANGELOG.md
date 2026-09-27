@@ -10,6 +10,10 @@ All notable changes to this project are documented here. The format follows
 
 - The GitHub release now also carries a ready-to-unpack `paperize.zip` (the plugin folder with `main.js`, `manifest.json` and `styles.css`) and a `checksums.sha256` file. For a manual install, download the zip and unpack it into `.obsidian/plugins/` instead of creating the folder and saving three files by hand.
 
+### Fixed
+
+- The placeholder text for an image that could not be decoded now follows the interface language instead of always showing the German default.
+
 ## [0.4.0] — 2026-09-26
 
 ### Added
