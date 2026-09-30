@@ -70,6 +70,8 @@ cp manifest.json main.js styles.css \
 npm run deploy
 ```
 
+Oder lade `paperize.zip` aus dem [Release](https://github.com/johannes-kaindl/obsidian-paperize/releases/latest) — es enthält genau diese Dateien (`main.js`, `manifest.json`, `styles.css`) — und entpacke es nach `.obsidian/plugins/`; mit `checksums.sha256` prüfst du den Download.
+
 Dann: Obsidian → Einstellungen → Community-Plugins → neu laden → **Paperize** aktivieren.
 
 ## Nutzung
