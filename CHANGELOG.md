@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.4.2] — 2026-10-03
+
 ### Changed
 
 - The README explains the first install from the release zip, including the checksum check.
