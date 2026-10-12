@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Internal: the plugin now builds on the shared library at obsidian-kit 0.57.0 and code-kit 0.24.0. The PDF engine and the settings helpers are unchanged; the file-name builder only gained an optional length limit that paperize does not use. Nothing changes for you.
+
 ## [0.4.2] — 2026-10-03
 
 ### Changed
