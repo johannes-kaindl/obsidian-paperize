@@ -21,32 +21,28 @@
  *
  * ## Voraussetzung
  *
- * ⚠️ **Zuerst prüfen, wer sonst an Obsidian hängt.** Der Debug-Port ist geteilte
- * Infrastruktur; ein `quit` trifft die Instanz, an der möglicherweise eine andere Session
- * arbeitet, und zerstört deren Zustand. Der eigene Lauf ist danach sauber grün, der Schaden
- * entsteht woanders und fällt nicht auf.
+ * Der Treiber läuft gegen eine **Zweitinstanz** mit eigenem Profil und eigenem Port — nie gegen
+ * die reguläre Instanz (9222), an der andere Sessions hängen; ein `quit` träfe deren Zustand.
+ * `--port` ist Pflicht, einen Standardport gibt es nicht.
  *
  * ```bash
- * lsof -nP -iTCP:9222 -sTCP:LISTEN >/dev/null && echo "läuft bereits — NICHT beenden"
- * curl -s http://127.0.0.1:9222/json/list | grep -o '"title":"[^"]*"'   # wen träfe ein Quit?
+ * npm run build && npm run smoke:gui -- --setup   # Staging-Vault aus fixtures/vault/ ($STAGING_VAULTS_DIR)
+ * UD=/tmp/obs-test-obsidian-paperize; mkdir -p "$UD"
+ * cp ~/Library/Application\ Support/obsidian/obsidian-*.asar "$UD"/     # aktuelle App-Version
+ * # Vault und "language":"en" in "$UD/obsidian.json" eintragen (Obsidian liest sie nur beim Start)
+ * lsof -nP -iTCP:9391 -sTCP:LISTEN                                        # Port frei?
+ * /Applications/Obsidian.app/Contents/MacOS/Obsidian --user-data-dir="$UD" --remote-debugging-port=9391 &
+ * python3 ~/.claude/hooks/obsidian-cdp-lock.py acquire --label obsidian-paperize --intent "GUI-Smoke" --exclusive focus --port 9391 --ttl 300
+ * npm run smoke:gui -- --port 9391
+ * python3 ~/.claude/hooks/obsidian-cdp-lock.py release --port 9391
  * ```
  *
- * Läuft dort schon eine fremde Messung, ist die **Zweitinstanz** der richtige Ort statt
- * einer Nachfrage — die Sperre hängt am Profil, nicht am Rechner:
+ * Vertrauensdialog und Restricted Mode des frischen Profils hebt der Treiber selbst auf
+ * (`bereiteInstanzVor`). Je Messlauf ein frischer Prozess; der erste Lauf nach der Profilanlage
+ * ist ein Aufwärmlauf und zählt nicht.
  *
- * ```bash
- * UD=/tmp/obs-paperize; mkdir -p "$UD"
- * /Applications/Obsidian.app/Contents/MacOS/Obsidian --user-data-dir="$UD" --remote-debugging-port=9333 &
- * npm run smoke:gui -- --port 9333
- * ```
- *
- * Der reguläre Weg, wenn nichts läuft:
- *
- * ```bash
- * open -a Obsidian --args --remote-debugging-port=9222
- * npm run build && npm run smoke:gui -- --setup   # Staging-Vault aus fixtures/vault/
- * npm run smoke:gui
- * ```
+ * Bilanz: vier Zustände nach CORE-TEST-19 (grün · rot · übersprungen · nichts gemessen), die
+ * Soll-Liste `PUNKTE` ist der Nenner; Exit 1 bei Rot oder „nichts gemessen“, Exit 2 bei Abbruch.
  *
  * `--setup` baut `$STAGING_VAULTS_DIR/obsidian-paperize` neu aus dem getrackten Fixture.
  * Der Vault ist Wegwerfware; verloren heißt neu gebaut, nicht rekonstruiert.
@@ -60,7 +56,8 @@ import type { AddressInfo } from 'node:net';
 import { join } from 'node:path';
 import { cwd } from 'node:process';
 
-import { Cdp, attachTo, closeExtraLeaves, notices, openExisting, pollUntil, requireVisible } from '../../tools/obsidian-cdp/cdp.js';
+import { createBilanz, parseArgs, runDriver } from '../../tools/obsidian-cdp/bilanz.js';
+import { Cdp, attachTo, bereiteInstanzVor, closeExtraLeaves, notices, openExisting, pollUntil, requireVisible } from '../../tools/obsidian-cdp/cdp.js';
 import { buildVault, requireEigenerBuild, stagingVaultDir } from '../../tools/obsidian-cdp/vault.js';
 
 const REPO_NAME = 'obsidian-paperize';
@@ -70,28 +67,49 @@ const FIXTURE_DIR = join(REPO_ROOT, 'fixtures/vault');
 
 /* ---------------------------------------------------------------- Protokoll */
 
-interface Check {
-  name: string;
-  passed: boolean;
-  detail: string;
-}
+/** Soll-Liste aller Prüfpunkte — der Nenner der Bilanz (CORE-TEST-19). Ein Punkt, der nie
+ *  aufgezeichnet wird, zählt als „nichts gemessen“ und setzt Exit 1. */
+const PUNKTE = [
+  'A0 Kein liegen gebliebener Test-Ausgabepfad aus einem abgebrochenen Vorlauf',
+  'A1 Plugin geladen',
+  'A2 Export-Befehl registriert',
+  'A3 Ribbon-Knopf vorhanden',
+  'B1 PDF entsteht neben der Notiz',
+  'B2 Datei ist ein PDF',
+  'B3 Notice nennt den gespeicherten Pfad',
+  'B4 Text ist Vektor-Text in Core-14-Schriften',
+  'C1 Überschriften, Auszeichnung, Inline-Code',
+  'C2 Listen (verschachtelt, nummeriert) und Blockzitat',
+  'C3 Tabellenzellen',
+  'C4 Codeblöcke vollständig, keine Platzhalter im Fließtext',
+  'C5 Task-Listen behalten [ ] und [x]',
+  'C6 Bild als JPEG eingebettet',
+  'C7 Sonderzeichen ueberleben die WinAnsi-Kodierung',
+  'C9 Titel steht nicht doppelt, wenn die Notiz eine H1 hat',
+  'C8 Link-Text bleibt erhalten',
+  'D1 Export läuft trotz nicht unterstützter Elemente durch',
+  'D2 Nicht Unterstütztes wird GEZÄHLT, nicht verschwiegen',
+  'D3 Text um das Unbekannte herum bleibt erhalten',
+  'D4 Callout wird vereinfacht dargestellt, nicht verworfen',
+  'D5 Notiz ohne Inhalt erzeugt Meldung statt leerem PDF',
+  'E1 {version} zählt hoch statt zu überschreiben',
+  'E2 ohne {version} wird überschrieben, nicht gezählt',
+  'E3 eigener Ordner wird angelegt und beschrieben',
+  'E4 verbotene Zeichen im Schema werden bereinigt',
+  'G1 Wikilink-Embed, Markdown-Bild und Inline-Bild landen als Bilder im PDF',
+  'G4 Bild im Listenpunkt wird Bildblock, Bild in der Tabellenzelle bleibt als Text sichtbar',
+  'G2 entferntes Bild (http) wird über requestUrl geholt und eingebettet',
+  'G3 nie antwortender Bild-Host: PDF entsteht mit Platzhalter, kein Hänger',
+  'F1 getSettingDefinitions liefert die fünf Sektionen',
+  'F2 alle Einstellungen sind über die Definitionen erreichbar',
+  'F3 begrenzte Zahlenwerte sind Slider, keine Textfelder',
+  'F4 der Tab ist in fünf Sektionen gegliedert — auf einem der beiden Pfade',
+  'F5 der gezeichnete Tab führt so viele Zeilen wie die Definitionen',
+  'F6 die Hilfe-Zeile steht als erste Zeile oben im Settings-Tab',
+] as const;
 
-const results: Check[] = [];
-
-function record(name: string, passed: boolean, detail: string): void {
-  results.push({ name, passed, detail });
-  console.log(`${passed ? '  ✓' : '  ✗'} ${name}${detail ? ` — ${detail}` : ''}`);
-}
-
-/** Was der Lauf bewusst NICHT misst. Steht im Protokoll, damit eine Lücke nicht wie
- *  Abdeckung aussieht — ein stillschweigend ausgelassener Punkt liest sich hinterher
- *  wie ein grüner. */
-const uebersprungen: string[] = [];
-
-function skipped(name: string, reason: string): void {
-  uebersprungen.push(name);
-  console.log(`  – ${name} — übersprungen: ${reason}`);
-}
+const bilanz = createBilanz({ punkte: PUNKTE });
+const { record, unmeasured } = bilanz;
 
 const warnungen: string[] = [];
 
@@ -244,13 +262,13 @@ function raeumePdfs(vaultDir: string): number {
 
 /* ------------------------------------------------------------- Prüfpunkte */
 
-async function pruefeGrundlage(cdp: Cdp, v: VaultInfo): Promise<void> {
+async function pruefeGrundlage(cdp: Cdp, v: VaultInfo, hinweis: string): Promise<void> {
   console.log('\nA · Grundlage');
 
   const geladen = await cdp.evaluate<boolean>(
     `return Boolean(app.plugins.plugins[${JSON.stringify(PLUGIN_ID)}]);`,
   );
-  record('A1 Plugin geladen', geladen, geladen ? `Vault ${v.name}` : 'app.plugins.plugins.paperize fehlt');
+  record('A1 Plugin geladen', geladen, geladen ? `Vault ${v.name} (${hinweis})` : `app.plugins.plugins.paperize fehlt — ${hinweis}`);
   if (!geladen) throw new Error('Ohne geladenes Plugin ist jeder weitere Punkt gegenstandslos.');
 
   const cmd = await cdp.evaluate<{ id: string; name: string } | null>(`
@@ -401,7 +419,9 @@ async function pruefeDegradation(cdp: Cdp, vaultDir: string): Promise<void> {
       text.includes('MARKCALLOUT') ? 'Callout-Text im PDF' : 'MARKCALLOUT fehlt — der Callout-Inhalt ging verloren',
     );
   } else {
-    skipped('D3/D4 Inhalt trotz Degradation', 'kein PDF entstanden');
+    const grund = 'Gegenstand nicht erreicht: kein PDF entstanden';
+    unmeasured('D3 Text um das Unbekannte herum bleibt erhalten', grund);
+    unmeasured('D4 Callout wird vereinfacht dargestellt, nicht verworfen', grund);
   }
 
   // Leere Notiz: eine Meldung, kein leeres PDF.
@@ -530,7 +550,9 @@ async function pruefeBilder(cdp: Cdp, vaultDir: string): Promise<void> {
     const hDa = await warteAufDatei(join(vaultDir, 'Bild-Remote.pdf'), 40_000);
     const dauer = Math.round((Date.now() - t0) / 1000);
     const text = hDa ? pdfText(readFileSync(join(vaultDir, 'Bild-Remote.pdf'))) : '';
-    record('G3 nie antwortender Bild-Host: PDF entsteht mit Platzhalter, kein Hänger', hDa && text.includes('MARKHAENGT') && text.includes('[Bild: haengt]'), hDa ? `nach ${dauer} s · Platzhalter ${text.includes('[Bild: haengt]') ? 'da' : 'FEHLT'}` : 'kein PDF nach 40 s');
+    // Der Platzhalter folgt der Oberflächensprache (Kit pdf 0.44.0): Deutsch „Bild“, Englisch „Image“.
+    const platzhalter = /\[(Bild|Image): haengt\]/.test(text);
+    record('G3 nie antwortender Bild-Host: PDF entsteht mit Platzhalter, kein Hänger', hDa && text.includes('MARKHAENGT') && platzhalter, hDa ? `nach ${dauer} s · Platzhalter ${platzhalter ? 'da' : 'FEHLT'}` : 'kein PDF nach 40 s');
   } finally {
     server.closeAllConnections();
     server.close();
@@ -561,7 +583,10 @@ async function pruefeSettings(cdp: Cdp): Promise<void> {
   `);
 
   if (!defs) {
-    skipped('F1–F3 deklarative Settings-Definitionen', 'kein pluginTab mit getSettingDefinitions — Obsidian < 1.13?');
+    const grund = 'Gegenstand nicht erreicht: kein pluginTab mit getSettingDefinitions (Obsidian < 1.13?)';
+    unmeasured('F1 getSettingDefinitions liefert die fünf Sektionen', grund);
+    unmeasured('F2 alle Einstellungen sind über die Definitionen erreichbar', grund);
+    unmeasured('F3 begrenzte Zahlenwerte sind Slider, keine Textfelder', grund);
   } else {
     record('F1 getSettingDefinitions liefert die fünf Sektionen', defs.gruppen === 5, `${defs.gruppen} Gruppe(n): ${defs.keys.join(' · ')}`);
     record('F2 alle Einstellungen sind über die Definitionen erreichbar', defs.items >= 17, `${defs.items} Einträge (Settings-Suche findet genau diese)`);
@@ -620,10 +645,10 @@ async function pruefeSettings(cdp: Cdp): Promise<void> {
   `);
 
   if (!tabDom.container) {
-    skipped(
-      'F4/F5 Settings-Tab im DOM',
-      'kein .vertical-tab-content im verbundenen Fenster — dann per attachTo("settings", port) auf das Fenster ohne Workspace verbinden',
-    );
+    const grund = 'Gegenstand nicht erreicht: kein .vertical-tab-content im verbundenen Fenster (dann per attachTo("settings", port) auf das Fenster ohne Workspace verbinden)';
+    unmeasured('F4 der Tab ist in fünf Sektionen gegliedert — auf einem der beiden Pfade', grund);
+    unmeasured('F5 der gezeichnete Tab führt so viele Zeilen wie die Definitionen', grund);
+    unmeasured('F6 die Hilfe-Zeile steht als erste Zeile oben im Settings-Tab', grund);
   } else {
     // ⚠️ Zwei zulässige Ausgänge, nicht einer. Die Sektionsgliederung entsteht ab 1.13 durch
     // den NATIVEN Renderer (`.setting-item-heading` je Gruppe, kein Collapse-Verhalten —
@@ -671,17 +696,20 @@ function setupVault(): void {
 }
 
 async function main(): Promise<void> {
-  const argv = process.argv.slice(2);
-  if (argv.includes('--setup')) {
+  const args = parseArgs(process.argv.slice(2));
+  if (args.has('setup')) {
     setupVault();
     return;
   }
 
-  const portArg = argv.indexOf('--port');
-  const port = portArg >= 0 ? Number(argv[portArg + 1]) : 9222;
-  const vaultArg = argv.indexOf('--vault');
-  const vaultFilter = vaultArg >= 0 ? argv[vaultArg + 1] : REPO_NAME;
-  const behalten = argv.includes('--keep');
+  // Kein Standardport: 9222 gehört der regulären Instanz, an der andere Sessions hängen.
+  const portArg = args.value('port');
+  if (!portArg || !Number.isInteger(Number(portArg))) {
+    throw new Error('--port <Port> ist Pflicht (Zweitinstanz, z. B. --port 9391) — kein Standardport.');
+  }
+  const port = Number(portArg);
+  const vaultFilter = args.value('vault') ?? REPO_NAME;
+  const behalten = args.has('keep');
 
   const cdp = await attachTo('workspace', port, vaultFilter);
   if (!cdp) throw new Error(`Kein Obsidian-Fenster für Vault "${vaultFilter}" auf Port ${port}.`);
@@ -729,6 +757,10 @@ async function main(): Promise<void> {
       (m) => warnungen.push(m),
     );
 
+    // Frisches Profil: Vertrauensdialog bestätigen, Restricted Mode aufheben, Plugin laden — nur im
+    // eigenen Staging-Vault. Muss VOR dem Lesen der Einstellungen laufen (sie liegen im Plugin).
+    const klar = await bereiteInstanzVor(cdp, { pluginIds: [PLUGIN_ID], nurVault: REPO_NAME, sprache: 'en' });
+
     vorher = await readSettings(cdp);
     // A0 — ein per Ctrl-C abgebrochener Vorlauf haette `vorher` NIE zurueckgeschrieben; der
     // hier gelesene Wert waere dann bereits ein Test-Patch statt des echten Ausgangszustands
@@ -749,7 +781,7 @@ async function main(): Promise<void> {
     }
     raeumePdfs(vaultDir);
 
-    await pruefeGrundlage(cdp, v);
+    await pruefeGrundlage(cdp, v, klar.hinweis);
     await pruefeGrundfall(cdp, vaultDir);
     await pruefeDomToIr(vaultDir);
     await pruefeDegradation(cdp, vaultDir);
@@ -780,21 +812,12 @@ async function main(): Promise<void> {
     process.off('SIGTERM', onAbortSignal);
   }
 
-  const rot = results.filter((r) => !r.passed);
-  console.log(`\n${results.length - rot.length}/${results.length} Prüfpunkte grün`);
-  if (uebersprungen.length) console.log(`Übersprungen: ${uebersprungen.join(' · ')}`);
+  bilanz.abschluss();
   for (const w of warnungen) console.log(`WARNUNG: ${w}`);
   console.log(
     'Nicht mechanisch geprüft: wie das PDF AUSSIEHT — Umbruchästhetik, Waisen-/Witwenwirkung,\n' +
     'Grauwert, Bildqualität nach der JPEG-Re-Kodierung. Dafür bleibt der Blick ins Dokument.',
   );
-  if (rot.length) {
-    console.log(`\nRot: ${rot.map((r) => r.name).join(' · ')}`);
-    process.exitCode = 1;
-  }
 }
 
-main().catch((e: unknown) => {
-  console.error(`\nABBRUCH: ${(e as Error).message}`);
-  process.exitCode = 2;
-});
+runDriver(main);

@@ -21,9 +21,10 @@
  * der Quit:
  *
  * ```bash
- * lsof -nP -iTCP:9222 -sTCP:LISTEN >/dev/null && echo "belegt — erst fragen, wem"
- * UD=/tmp/obs-paperize-shots; mkdir -p "$UD"
- * /Applications/Obsidian.app/Contents/MacOS/Obsidian --user-data-dir="$UD" --remote-debugging-port=9334 &
+ * lsof -nP -iTCP:9391 -sTCP:LISTEN >/dev/null && echo "belegt — anderen Port nehmen"
+ * UD=/tmp/obs-test-obsidian-paperize; mkdir -p "$UD"
+ * /Applications/Obsidian.app/Contents/MacOS/Obsidian --user-data-dir="$UD" --remote-debugging-port=9391 &
+ * npm run shots -- --port 9391        # --port ist Pflicht, einen Standardport gibt es nicht
  * ```
  *
  * ⚠️ **Ein frisches Profil startet mit der GEBÜNDELTEN Obsidian-Version** (1.12.4), nicht
@@ -550,7 +551,7 @@ async function main(): Promise<void> {
       '   Schau-Notizen. Vor dem nächsten Smoke dessen eigenes --setup fahren.\n' +
       '\n⚠️  Erst prüfen, wer sonst an Obsidian hängt — ein Quit zerstört fremden Zustand,\n' +
       '   und der eigene Lauf ist danach trotzdem grün:\n' +
-      '     lsof -nP -iTCP:9222 -sTCP:LISTEN\n' +
+      '     lsof -nP -iTCP:<Port> -sTCP:LISTEN\n' +
       '   Hängt jemand dran: Zweitinstanz mit eigenem --user-data-dir starten (Kopf dieser\n' +
       '   Datei), nicht quitten.\n' +
       `\n   open "obsidian://open?path=${encodeURIComponent(join(vaultDir, NOTIZ))}"\n` +
@@ -559,7 +560,9 @@ async function main(): Promise<void> {
     return;
   }
 
-  const port = Number(flag('--port') ?? env.SHOTS_PORT ?? 9222);
+  // Kein Standardport: 9222 gehört der regulären Instanz, an der andere Sessions hängen.
+  const port = Number(flag('--port') ?? env.SHOTS_PORT);
+  if (!Number.isInteger(port)) throw new Error('--port <Port> ist Pflicht (Zweitinstanz, z. B. --port 9391) — kein Standardport.');
   const nur = flag('--only');
   if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true });
 
