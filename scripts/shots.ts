@@ -449,7 +449,16 @@ const SHOTS: Shot[] = [
       // Die erste Gruppe IST „Output" — `SECTIONS` in src/obsidian/settings.ts führt sie
       // zuerst, und das ist kein Zufall, sondern die Lehre aus 0.3.0: das Ausgabeziel gab
       // es seit 0.1.0 und war in einer flachen Liste unauffindbar.
-      const box = await boxOf(cdp, '.setting-group', PADDING);
+      // Vor „Output" steht seit der Hilfe-Zeile (UI-STANDARD §8) eine eigene Gruppe: die erste Gruppe
+      // ist die Hilfe, nicht Output (das Bild zeigte nur die Hilfe-Zeile, gemessen 2026-10-14).
+      // Gewählt wird deshalb die Gruppe, deren Überschrift „Output" heißt.
+      await cdp.evaluate(`
+        const gruppen = [...document.querySelectorAll(".setting-group")];
+        const ziel = gruppen.find((g) => /^\\s*Output\\s*/.test(g.textContent || ""));
+        if (ziel) ziel.setAttribute("data-shot", "output");
+        return Boolean(ziel);
+      `);
+      const box = await boxOf(cdp, '.setting-group[data-shot="output"]', PADDING);
       return box ?? boxOf(cdp, '.vertical-tab-content', PADDING);
     },
   },
