@@ -8,7 +8,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
-- Internal: the plugin now builds on the shared library at obsidian-kit 0.57.0 and code-kit 0.24.0. The PDF engine and the settings helpers are unchanged; the file-name builder only gained an optional length limit that paperize does not use. Nothing changes for you.
+- Internal: the plugin now builds on the shared library at obsidian-kit 0.60.1 and code-kit 0.27.1. The PDF engine and the settings helpers are unchanged; the file-name builder only gained an optional length limit that paperize does not use. Nothing changes for you. One visible detail: an embedded image whose data cannot be decoded is now skipped with a placeholder in the PDF instead of being turned into garbage bytes.
 
 ## [0.4.2] — 2026-10-03
 
