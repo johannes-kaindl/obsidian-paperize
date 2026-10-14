@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-10-14
+
 ### Added
 
 - Paperize asks before it replaces an existing PDF. This happens with a file name scheme that has no `{version}`, where the second export used to overwrite the first without a word. Choose *Replace*, or add `{version}` to keep every export.
