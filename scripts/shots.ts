@@ -79,6 +79,7 @@ import { argv, cwd, env, exit } from 'node:process';
 import {
   Cdp,
   attachTo,
+  clearNotices,
   closeExtraLeaves,
   openExisting,
   pollUntil,
@@ -121,16 +122,6 @@ async function grundzustand(cdp: Cdp): Promise<void> {
     return true;
   `);
   await setAppConfig(cdp, 'livePreview', true);
-}
-
-/** Notices löschen — `.notice` gehört Obsidian, nicht dem Prüfling. */
-async function clearNotices(cdp: Cdp): Promise<void> {
-  await cdp.evaluate(`
-    const docs = new Set([document]);
-    if (typeof activeDocument !== "undefined" && activeDocument) docs.add(activeDocument);
-    for (const doc of docs) for (const n of doc.querySelectorAll(".notice")) n.remove();
-    return true;
-  `);
 }
 
 /** Export auslösen und auf die Datei im Vault warten. */
