@@ -64,7 +64,8 @@ describe('vendored dom-to-ir + code-blocks', () => {
   // vierten Parameter — der Platzhalter fuer ein nicht dekodierbares Bild ohne Alt-Text folgt
   // damit der Oberflaechensprache statt dem deutschen Default der puren Engine.
   it('shows the localized imageFailed text for an image without alt text that fails to decode', async () => {
-    const blocks = [{ type: 'image' as const, alt: '' }];
+    // Der Block ist vor der Dekodierung noch ohne data/wPx/hPx — daher der Cast auf den Parametertyp.
+    const blocks = [{ type: 'image' as const, alt: '' }] as unknown as Parameters<typeof resolveImages>[0];
     const imageEls = [document.createElement('img')];
     const { blocks: out } = await resolveImages(blocks, imageEls, async () => null, {
       image: 'Image', imageFailed: 'Image could not be embedded',

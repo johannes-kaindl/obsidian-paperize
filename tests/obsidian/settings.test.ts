@@ -150,7 +150,7 @@ describe('getSettingDefinitions', () => {
   it('returns one group per section, in SECTIONS order', () => {
     // Das erste Element ist die Hilfe-Zeile (tests/obsidian/help-row.test.ts), keine Sektion.
     const defs = tab().tab.getSettingDefinitions().slice(1);
-    expect(defs.map((g) => (g as { key: string }).key)).toEqual(SECTIONS.map((s) => s.key));
+    expect(defs.map((g) => (g as unknown as { key: string }).key)).toEqual(SECTIONS.map((s) => s.key));
   });
 
   it('gives every group a heading and the group type', () => {

@@ -135,10 +135,11 @@ Abbruch. Desktop **und** iOS/iPad (`isDesktopOnly: false`) erzeugen echte Vektor
 
 ```bash
 npm run typecheck   # tsc --noEmit
+npm run typecheck:test # tsc -p tsconfig.test.json (src + tests)
 npm test            # check-no-abs-paths + check-no-nul-bytes + vitest
 npm run check:pure  # verweigert 'obsidian'-Imports in src/core + src/vendor
 npm run build       # typecheck + esbuild --production → main.js (Build-Artefakt)
-npm run gate        # typecheck + typecheck:scripts + test + check:pure + lint + build
+npm run gate        # typecheck + typecheck:test + typecheck:scripts + test + check:pure + lint + build
 npm run smoke:gui   # GUI-Smoke gegen ein LAUFENDES Obsidian (docs/SMOKE.md)
 npm run deploy      # build + cp main.js manifest.json styles.css → $OBSIDIAN_PLUGIN_DIR
 ```
