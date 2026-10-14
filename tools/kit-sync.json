@@ -1,7 +1,7 @@
 {
   "sources": {
     "obsidian-kit": {
-      "ref": "0.60.1"
+      "ref": "0.60.2"
     },
     "code-kit": {
       "ref": "0.27.1"
@@ -36,7 +36,8 @@
         "i18n",
         "settings",
         "filename-template",
-        "data-url"
+        "data-url",
+        "local-stamp"
       ]
     },
     {
@@ -47,7 +48,9 @@
         "collapsible",
         "folder-suggest",
         "settings_walker",
-        "help-setting"
+        "help-setting",
+        "confirm",
+        "share-export"
       ]
     }
   ]
