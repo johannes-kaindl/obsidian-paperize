@@ -1,7 +1,13 @@
 // tests/obsidian/output.test.ts
 import { describe, it, expect, vi } from 'vitest';
+const confirm = vi.hoisted(() => vi.fn());
 vi.mock('obsidian', () => ({ Notice: class {}, App: class {} }));
-import { resolveOutputPath, sanitizeBase, resolveVersionedOutputPath, writePdf } from '../../src/obsidian/output';
+vi.mock('../../src/vendor/kit-obsidian/confirm', () => ({ confirmAction: confirm }));
+import { resolveOutputPath, sanitizeBase, resolveVersionedOutputPath, writePdf, mayOverwrite, confirmReplace } from '../../src/obsidian/output';
+import { registerI18n } from '../../src/i18n/strings';
+import { setLang } from '../../src/vendor/kit/i18n';
+
+registerI18n();
 
 describe('resolveOutputPath', () => {
   const base = { noteDir: 'Notes', baseName: 'Meine Notiz', customFolder: 'Exports', attachmentPath: 'Media/Meine Notiz.pdf' };
@@ -36,7 +42,10 @@ describe('sanitizeBase', () => {
     expect(sanitizeBase('a/b:c?')).toBe('a_b_c_');
   });
   it('falls back for empty input', () => {
+    setLang('de');
     expect(sanitizeBase('')).toBe('Dokument');
+    setLang('en');
+    expect(sanitizeBase('')).toBe('Document');
   });
 });
 
@@ -141,5 +150,31 @@ describe('writePdf', () => {
     expect(mkdirs).toEqual([]);
     expect(writes).toEqual(['Muster GmbH.pdf']);
     expect(r.savedPath).toBe('Muster GmbH.pdf');
+  });
+});
+
+describe('Ersetzen einer vorhandenen PDF', () => {
+  it('fragt nur ohne {version}, mit festem Zielpfad und außerhalb von attachmentFolder/share', () => {
+    expect(mayOverwrite('nextToNote', '{title}', 'A.pdf')).toBe(true);
+    expect(mayOverwrite('customFolder', '{title}', 'X/A.pdf')).toBe(true);
+    expect(mayOverwrite('nextToNote', '{title} v{version}', 'A.pdf')).toBe(false);
+    expect(mayOverwrite('attachmentFolder', '{title}', 'A.pdf')).toBe(false);
+    expect(mayOverwrite('share', '{title}', null)).toBe(false);
+  });
+
+  it('fragt nicht, wenn die Datei nicht existiert', async () => {
+    confirm.mockReset();
+    const app = { vault: { adapter: { exists: async () => false } } } as never;
+    expect(await confirmReplace(app, 'A.pdf')).toBe(true);
+    expect(confirm).not.toHaveBeenCalled();
+  });
+
+  it('gibt die Antwort der Rückfrage weiter, wenn die Datei existiert', async () => {
+    const app = { vault: { adapter: { exists: async () => true } } } as never;
+    confirm.mockReset(); confirm.mockResolvedValue(false);
+    expect(await confirmReplace(app, 'A.pdf')).toBe(false);
+    confirm.mockResolvedValue(true);
+    expect(await confirmReplace(app, 'A.pdf')).toBe(true);
+    expect(confirm.mock.calls[0]![1].message).toContain('A.pdf');
   });
 });

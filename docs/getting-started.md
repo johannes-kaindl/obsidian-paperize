@@ -9,7 +9,7 @@ Follow one of the [install routes in the README](https://github.com/johannes-kai
 ## 2. Export a note
 
 1. Open a Markdown note in Obsidian.
-2. Run **Export active note as PDF** from the command palette, or click the ribbon icon (tooltip **Paperize: export as PDF**).
+2. Run **Export active note as PDF** from the command palette, or click the ribbon icon (tooltip **Export active note as PDF**).
 3. A notice reads "PDF saved: …" with the path. If some elements had to be simplified, a second notice says how many: "PDF created. N element(s) were simplified (e.g. callouts, math)."
 
 By default the PDF lands **next to the note**, named after it (`My note.pdf`). Open it from the file explorer; Obsidian shows PDFs in its own viewer.
@@ -20,7 +20,7 @@ Open **Settings → Community plugins → Paperize**. Under **Output** set **Out
 
 - **Next to the note** — the default.
 - **Obsidian attachment folder** — wherever your vault keeps attachments.
-- **Custom folder** — a vault-relative folder; the row **Custom output folder** appears once you pick this.
+- **Custom folder** — a vault-relative folder; the row **Custom output folder** appears once you pick this and suggests existing folders as you type.
 - **Share/open out of the vault** — the share sheet on iPhone/iPad, the default PDF app on desktop.
 
 ## 4. Keep more than one version

@@ -108,7 +108,8 @@ gelassen hast.
 | Sektion | Einstellung | Beschreibung | Standard |
 | --- | --- | --- | --- |
 | Ausgabe | **Ausgabeziel** | Wohin das PDF geschrieben wird: *neben der Notiz*, *Obsidian-Anhangordner*, *eigener Ordner* oder *Teilen/Öffnen außerhalb des Vaults*. | Neben der Notiz |
-| Ausgabe | **Eigener Ausgabe-Ordner** | Vault-relativer Ordner. Nur sichtbar, wenn das Ausgabeziel *eigener Ordner* ist. | *(leer)* |
+| Ausgabe | **Eigener Ausgabe-Ordner** | Vault-relativer Ordner, mit Ordnervorschlägen beim Tippen. Nur sichtbar, wenn das Ausgabeziel *eigener Ordner* ist. | *(leer)* |
+| Ausgabe | **PDF nach dem Export öffnen (Standard-App)** | Öffnet die gespeicherte Datei in deiner Standard-PDF-App. Im Modus *Teilen/öffnen* ausgeblendet, der immer öffnet oder teilt. | Aus |
 | Ausgabe | **Dateiname-Schema** | Siehe [unten](#dateiname-schema). | `{title}` |
 | Seite | **Seitenmaß** | A4 oder Letter. | A4 |
 | Seite | **Ränder (mm)** | Seitenrand auf allen vier Seiten, 12–50 mm. | 20 mm |
@@ -141,7 +142,7 @@ so wird ein Tippfehler im Dateinamen sichtbar, statt still zu verschwinden; ein 
 fällt auf `{title}` zurück.
 
 **Mit `{version}` überschreibst du nichts mehr.** Ohne ihn ersetzt der zweite Export die
-vorherige PDF. Mit ihm zählt jeder Export auf den nächsten freien Namen hoch (`Bericht v1.pdf`,
+vorherige PDF — Paperize fragt vorher nach. Mit ihm zählt jeder Export auf den nächsten freien Namen hoch (`Bericht v1.pdf`,
 `Bericht v2.pdf`, …). Im Modus *Anhangordner* ist er wirkungslos — dort löst Obsidian
 Kollisionen selbst auf.
 

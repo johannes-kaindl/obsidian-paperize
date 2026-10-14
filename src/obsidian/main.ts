@@ -1,7 +1,7 @@
 // src/obsidian/main.ts
 import { Plugin, Notice, MarkdownRenderer, Component, TFile, normalizePath, getLanguage, requestUrl } from 'obsidian';
 import { DEFAULT_SETTINGS, PaperizeSettings, PaperizeSettingTab, settingsToOptions } from './settings';
-import { writePdf, resolveVersionedOutputPath } from './output';
+import { writePdf, resolveVersionedOutputPath, mayOverwrite, confirmReplace } from './output';
 import { buildFilename } from '../core/filename';
 import { imageSourceKind, withTimeout, mimeForBytes } from '../core/image-source';
 import { mergeSettings } from '../vendor/kit/settings';
@@ -13,6 +13,8 @@ import { imageToJpeg } from '../vendor/kit/pdf/image';
 import { renderPdf } from '../vendor/kit/pdf';
 import { pickLang, setLang, t } from '../vendor/kit/i18n';
 import { registerI18n } from '../i18n/strings';
+import { localParts } from '../vendor/kit/local-stamp';
+import { ExportCancelled, startExportProgress } from './export-progress';
 
 const IMAGE_TIMEOUT_MS = 15000;
 const RENDER_TIMEOUT_MS = 10000;
@@ -28,31 +30,26 @@ interface FileManagerExt {
   getAvailablePathForAttachment?: (filename: string, sourcePath: string) => Promise<string>;
 }
 
-// Local date/time parts for the running footer and the filename scheme. Obsidian's global
-// `moment` is intentionally not used here: obsidian.d.ts re-exports it via a
-// namespace import (`import * as Moment from 'moment'`), which causes
-// TypeScript to strip the call signature from `typeof Moment` — `moment()`
-// is "not callable" under this repo's TS/obsidian-types combination.
+// Local date/time parts for the running footer and the filename scheme (the kit's local stamp;
+// Obsidian's global `moment` is not used, see obsidian.d.ts' namespace import).
 function nowParts(): { date: string; time: string } {
-  const d = new Date();
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return {
-    date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
-    time: `${pad(d.getHours())}${pad(d.getMinutes())}`,
-  };
+  const p = localParts(new Date());
+  return { date: `${p.year}-${p.month}-${p.day}`, time: `${p.hour}${p.minute}` };
 }
 
 export default class PaperizePlugin extends Plugin {
   // mergeSettings statt Spread: { ...DEFAULT_SETTINGS } teilt die uiCollapsed-Referenz mit
   // den Defaults, ein Zuklappen wuerde sie mutieren.
   settings: PaperizeSettings = mergeSettings(DEFAULT_SETTINGS, null);
+  // Ein Export zur Zeit: ein zweiter Klick auf den Ribbon-Knopf startete sonst einen parallelen Lauf.
+  private exporting = false;
 
   async onload() {
     // Language must be resolved before any user-facing string is registered below.
     registerI18n();
     setLang(pickLang(readObsidianLocale()));
     await this.loadSettings();
-    this.addRibbonIcon('file-down', t('cmd.exportRibbon'), () => this.exportActive());
+    this.addRibbonIcon('file-down', t('cmd.export'), () => this.exportActive());
     this.addCommand({ id: 'export-pdf', name: t('cmd.export'), callback: () => this.exportActive() });
     this.addSettingTab(new PaperizeSettingTab(this.app, this));
   }
@@ -67,15 +64,22 @@ export default class PaperizePlugin extends Plugin {
   private async exportActive(): Promise<void> {
     const file = this.app.workspace.getActiveFile();
     if (!file || file.extension !== 'md') { new Notice(t('notice.noActiveNote')); return; }
+    if (this.exporting) { new Notice(t('notice.exportBusy')); return; }
+    this.exporting = true;
+    const progress = startExportProgress();
     try {
-      await this.exportFile(file);
+      await this.exportFile(file, () => progress.checkpoint());
     } catch (e) {
+      if (e instanceof ExportCancelled) { new Notice(t('notice.exportCancelled')); return; }
       console.error('Paperize: export failed', e);
       new Notice(t('notice.exportFailed'));
+    } finally {
+      progress.done();
+      this.exporting = false;
     }
   }
 
-  private async exportFile(file: TFile): Promise<void> {
+  private async exportFile(file: TFile, checkpoint: () => void): Promise<void> {
     const raw = await this.app.vault.read(file);
     // Always strip the raw YAML from the body (it would render as an ugly code block);
     // the frontmatter is re-surfaced as a clean metadata block below when enabled.
@@ -98,6 +102,7 @@ export default class PaperizePlugin extends Plugin {
       // answers would hold the export forever. After RENDER_TIMEOUT_MS the DOM built so far is
       // used as is; the still-loading <img> falls through to decodeImage (own timeout → placeholder).
       await withTimeout(MarkdownRenderer.render(this.app, markdown, holder, file.path, comp), RENDER_TIMEOUT_MS);
+      checkpoint();
       // Die Platzhalter stehen IM PDF und muessen deshalb der Oberflaechensprache folgen.
       // Bis Kit 0.30.0 waren sie in der puren Engine deutsch festgeschrieben — ein
       // englischer Nutzer bekam "[Formel]" ins Dokument. Die Engine kann kein i18n haben
@@ -120,6 +125,7 @@ export default class PaperizePlugin extends Plugin {
       comp.unload();
     }
 
+    checkpoint();
     const totalUnsupported = unsupportedCount + resolved.unsupportedAdded;
     const { date: dateStr, time: timeStr } = nowParts();
     // Traegt die Notiz ihren Titel schon als eigene H1, wird er oben NICHT noch einmal
@@ -145,7 +151,7 @@ export default class PaperizePlugin extends Plugin {
     // Der Anhang-Pfad braucht den fertigen Dateinamen. {version} ist in diesem Modus
     // wirkungslos (Obsidian löst Kollisionen selbst auf) — daher version: 1, kein Zirkel.
     const attachmentPath = this.settings.outputMode === 'attachmentFolder'
-      ? await this.attachmentPathFor(file, buildFilename(this.settings.filenameTemplate, { ...vars, version: 1 }))
+      ? await this.attachmentPathFor(file, buildFilename(this.settings.filenameTemplate, { ...vars, version: 1 }, t('file.fallbackName')))
       : '';
     const { path, baseName } = await resolveVersionedOutputPath(
       this.app,
@@ -154,10 +160,14 @@ export default class PaperizePlugin extends Plugin {
       vars,
       { noteDir: noteDir === '/' ? '' : noteDir, customFolder: this.settings.customFolder, attachmentPath },
     );
+    checkpoint();
+    // Standard-Schema {title}: der Name ändert sich nie, ein zweiter Export ersetzt die Datei — erst fragen.
+    if (mayOverwrite(this.settings.outputMode, this.settings.filenameTemplate, path)
+      && !(await confirmReplace(this.app, path))) throw new ExportCancelled();
     await writePdf(this.app, bytes, this.settings.outputMode, {
       baseName,
       resolvedPath: path,
-      openAfter: false,
+      openAfter: this.settings.openAfter,
     });
 
     if (totalUnsupported > 0) new Notice(t('notice.simplified', totalUnsupported));

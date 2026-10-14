@@ -41,9 +41,11 @@ export function hasVersionPlaceholder(template: string): boolean {
  *
  *  Die Fallback-Kette ist Paperize' bisherige, wörtlich übersetzt: leeres oder
  *  weg-sanitisiertes Schema → Titel, sonst die Konstante — nie ein leerer Dateiname.
+ *  `lastResort` ist der Dateiname, wenn weder Schema noch Titel einen ergeben: der Aufrufer reicht ihn in der
+ *  Oberflächensprache durch (src/obsidian/output.ts), diese reine Schicht kennt kein i18n.
  *  `onInvalid` bleibt beim Kit-Default 'replace' (ungültiges Zeichen → `_`), das ist
  *  Paperize' etablierte Semantik. */
-export function buildFilename(template: string, v: FilenameValues): string {
+export function buildFilename(template: string, v: FilenameValues, lastResort = 'Document'): string {
   return fillTemplate(
     template,
     {
@@ -53,6 +55,6 @@ export function buildFilename(template: string, v: FilenameValues): string {
       folder: v.folder,
       version: String(v.version),
     },
-    { fallbacks: ['{title}'], lastResort: 'Dokument' },
+    { fallbacks: ['{title}'], lastResort },
   );
 }

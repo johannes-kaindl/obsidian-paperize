@@ -57,8 +57,9 @@ describe('buildFilename', () => {
   it('falls back to the title for an empty template', () => {
     expect(buildFilename('', V)).toBe('Mein Bericht');
   });
-  it('falls back to Dokument when template and title are both empty', () => {
-    expect(buildFilename('', { ...V, title: '' })).toBe('Dokument');
+  it('falls back to the given last-resort name when template and title are both empty', () => {
+    expect(buildFilename('', { ...V, title: '' })).toBe('Document');
+    expect(buildFilename('', { ...V, title: '' }, 'Dokument')).toBe('Dokument');
   });
 
   // Regression: bis 0.3.3 war die subs-Map ein Objekt-Literal und wurde mit `subs[key] ?? …`

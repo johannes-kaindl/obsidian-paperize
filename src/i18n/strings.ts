@@ -8,7 +8,6 @@ import { defineStrings } from "../vendor/kit/i18n";
 export const EN: Record<string, string> = {
   // commands / ribbon
   "cmd.export": "Export active note as PDF",
-  "cmd.exportRibbon": "Paperize: export as PDF",
 
   // notices
   "notice.noActiveNote": "No active Markdown note.",
@@ -16,6 +15,16 @@ export const EN: Record<string, string> = {
   "notice.nothingToExport": "Nothing to export.",
   "notice.simplified": "PDF created. {0} element(s) were simplified (e.g. callouts, math).",
   "notice.saved": "PDF saved: {0}",
+  "notice.exporting": "Exporting PDF…",
+  "notice.exportCancel": "Cancel",
+  "notice.exportCancelled": "PDF export cancelled.",
+  "notice.exportBusy": "A PDF export is already running.",
+  "confirm.overwrite.title": "Replace existing PDF?",
+  "confirm.overwrite.message": "{0} already exists and will be replaced. Add {version} to the file name scheme to keep every export.",
+  "confirm.overwrite.confirm": "Replace",
+  "confirm.cancel": "Cancel",
+  // Dateiname, wenn weder Schema noch Titel einen ergeben (steht im Dateinamen, folgt der Oberflaechensprache).
+  "file.fallbackName": "Document",
   // Platzhalter fuer Elemente, die die Core-14-Engine nicht zeichnen kann. Sie stehen IM PDF,
   // nicht in der Oberflaeche — und waren bis Kit 0.30.0 dort deutsch festgeschrieben, auch fuer
   // englische Nutzer (gefunden 2026-09-02 auf einem README-Screenshot).
@@ -64,6 +73,7 @@ export const EN: Record<string, string> = {
   "settings.output.share": "Share/open out of the vault",
   // Kein .desc mehr: die Zeile rendert nur noch im Modus „Custom folder" — die UI sagt es selbst.
   "settings.customFolder.name": "Custom output folder",
+  "settings.openAfter.name": "Open the PDF after export (default app)",
   "settings.pagebreak.name": "Page-break marker",
   "settings.pagebreak.desc": "A paragraph matching exactly this text forces a page break. Empty = feature off.",
   "settings.keepTables.name": "Keep tables together",
@@ -81,7 +91,6 @@ export const EN: Record<string, string> = {
 export const DE: Record<string, string> = {
   // commands / ribbon
   "cmd.export": "Aktive Notiz als PDF exportieren",
-  "cmd.exportRibbon": "Paperize: als PDF exportieren",
 
   // notices
   "notice.noActiveNote": "Keine aktive Markdown-Notiz.",
@@ -89,6 +98,15 @@ export const DE: Record<string, string> = {
   "notice.nothingToExport": "Nichts zu exportieren.",
   "notice.simplified": "PDF erstellt. {0} Element(e) wurden vereinfacht dargestellt (z.B. Callouts, Mathe).",
   "notice.saved": "PDF gespeichert: {0}",
+  "notice.exporting": "PDF wird erzeugt…",
+  "notice.exportCancel": "Abbrechen",
+  "notice.exportCancelled": "PDF-Export abgebrochen.",
+  "notice.exportBusy": "Ein PDF-Export läuft bereits.",
+  "confirm.overwrite.title": "Vorhandene PDF ersetzen?",
+  "confirm.overwrite.message": "{0} existiert bereits und wird ersetzt. Mit {version} im Dateinamen-Schema bleibt jeder Export erhalten.",
+  "confirm.overwrite.confirm": "Ersetzen",
+  "confirm.cancel": "Abbrechen",
+  "file.fallbackName": "Dokument",
   "pdf.placeholder.math": "[Formel]",
   "pdf.placeholder.graphic": "[Grafik]",
   "pdf.placeholder.image": "Bild",
@@ -134,6 +152,7 @@ export const DE: Record<string, string> = {
   "settings.output.share": "Aus Vault teilen/öffnen",
   // Kein .desc mehr: die Zeile rendert nur noch im Modus „Eigener Ordner" — die UI sagt es selbst.
   "settings.customFolder.name": "Eigener Ausgabe-Ordner",
+  "settings.openAfter.name": "PDF nach dem Export öffnen (Standard-App)",
   "settings.pagebreak.name": "Seitenumbruch-Marker",
   "settings.pagebreak.desc": "Ein Absatz, der genau diesem Text entspricht, erzwingt einen Seitenumbruch. Leer = Funktion aus.",
   "settings.keepTables.name": "Tabellen zusammenhalten",

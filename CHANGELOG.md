@@ -6,9 +6,20 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Paperize asks before it replaces an existing PDF. This happens with a file name scheme that has no `{version}`, where the second export used to overwrite the first without a word. Choose *Replace*, or add `{version}` to keep every export.
+- While a PDF is being created, a notice shows "Exporting PDF…" with a **Cancel** button. A second export started meanwhile is refused with a message instead of running in parallel.
+- New setting **Open the PDF after export (default app)**, off by default (not shown in the share/open mode).
+
 ### Changed
 
-- Internal: the plugin now builds on the shared library at obsidian-kit 0.60.1 and code-kit 0.27.1. The PDF engine and the settings helpers are unchanged; the file-name builder only gained an optional length limit that paperize does not use. Nothing changes for you. One visible detail: an embedded image whose data cannot be decoded is now skipped with a placeholder in the PDF instead of being turned into garbage bytes.
+- "Share/open out of the vault": files in the hidden `.paperize-export` folder that Paperize did not write are no longer deleted without asking. PDFs from earlier exports are still replaced silently; anything else asks first, and if you say no it stays and the export goes on.
+- The custom output folder suggests existing folders as you type.
+- The ribbon icon's tooltip is now the command name, "Export active note as PDF".
+- The file name used when neither the scheme nor the note title gives one is "Document" in the English interface (it was always "Dokument").
+- Test files are now type-checked in the gate.
+- Internal: the plugin now builds on the shared library at obsidian-kit 0.60.2 and code-kit 0.27.1. The PDF engine and the settings helpers are unchanged; the file-name builder only gained an optional length limit that paperize does not use. Nothing changes for you. One visible detail: an embedded image whose data cannot be decoded is now skipped with a placeholder in the PDF instead of being turned into garbage bytes.
 
 ## [0.4.2] — 2026-10-03
 

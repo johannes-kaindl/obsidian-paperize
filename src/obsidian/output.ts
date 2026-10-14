@@ -1,25 +1,21 @@
 // src/obsidian/output.ts
 import { App, Notice } from 'obsidian';
 import type { OutputMode } from './settings';
-import { t } from '../vendor/kit/i18n';
+import { getLang, t } from '../vendor/kit/i18n';
+import { shareExport, SHARE_EXPORT_STRINGS_DE, SHARE_EXPORT_STRINGS_EN } from '../vendor/kit-obsidian/share-export';
 import { buildFilename, hasVersionPlaceholder, sanitizeFilename } from '../core/filename';
 import type { FilenameValues } from '../core/filename';
 import { joinVaultPath, vaultDirname } from '../vendor/kit/vault-path';
+import { confirmAction } from '../vendor/kit-obsidian/confirm';
 
-// Runtime-only API surfaces not covered by the standard/Obsidian typings.
-interface ShareCapableNavigator {
-  canShare?: (data: { files: File[] }) => boolean;
-  share?: (data: { files: File[] }) => Promise<void>;
-}
-interface AppWithDefaultApp {
-  openWithDefaultApp?: (path: string) => Promise<void>;
-}
+// Nur der Typ der optionalen Plattform-Funktion, die die öffentlichen Typings nicht kennen.
+interface AppWithDefaultApp { openWithDefaultApp?: (path: string) => Promise<void> }
 
 // Delegat auf die eine Sanitisierungs-Regel des Repos plus Paperize' Fallback-Konstante.
 // Die Regel selbst liegt seit dem Kit-Anschluss in src/vendor/kit/filename-template.ts;
 // src/core/filename.ts ist die repo-eigene Hülle darum und bleibt die Adresse dafür.
-export function sanitizeBase(name: string): string {
-  return sanitizeFilename(name) || 'Dokument';
+export function sanitizeBase(name: string, fallback: string = t('file.fallbackName')): string {
+  return sanitizeFilename(name) || fallback;
 }
 
 // Resolve the target .pdf path (vault-relative). Returns null for the share mode.
@@ -49,7 +45,7 @@ export async function resolveVersionedOutputPath(
   const counting = hasVersionPlaceholder(template);
   let version = 1;
   for (;;) {
-    const baseName = buildFilename(template, { ...vars, version });
+    const baseName = buildFilename(template, { ...vars, version }, t('file.fallbackName'));
     const path = resolveOutputPath(mode, { ...ctx, baseName });
     // share: kein Vault-Ziel (.paperize-export wird vor jedem Export geleert).
     // attachmentFolder: getAvailablePathForAttachment hat Kollisionen bereits aufgelöst —
@@ -58,6 +54,23 @@ export async function resolveVersionedOutputPath(
     if (!(await app.vault.adapter.exists(path))) return { path, baseName };
     version++;
   }
+}
+
+/** Ein Schema ohne {version} schreibt jeden Export auf denselben Namen: ist die Datei da, wird sie ersetzt.
+ *  attachmentFolder und share sind ausgenommen (Obsidian löst die Kollision selbst, share hat kein Vault-Ziel). */
+export function mayOverwrite(mode: OutputMode, template: string, path: string | null): path is string {
+  return path !== null && mode !== 'attachmentFolder' && mode !== 'share' && !hasVersionPlaceholder(template);
+}
+
+/** Fragt vor dem Ersetzen einer vorhandenen PDF. true = ersetzen (oder es gibt nichts zu ersetzen). */
+export async function confirmReplace(app: App, path: string): Promise<boolean> {
+  if (!(await app.vault.adapter.exists(path))) return true;
+  return confirmAction(app, {
+    title: t('confirm.overwrite.title'),
+    message: t('confirm.overwrite.message', path),
+    confirmLabel: t('confirm.overwrite.confirm'),
+    cancelLabel: t('confirm.cancel'),
+  });
 }
 
 export async function writePdf(
@@ -69,19 +82,10 @@ export async function writePdf(
   const adapter = app.vault.adapter;
   const appExt = app as AppWithDefaultApp;
   if (mode === 'share') {
-    const dir = '.paperize-export';
-    const safe = `${sanitizeBase(ctx.baseName)}.pdf`;
-    const path = `${dir}/${safe}`;
-    if (await adapter.exists(dir)) { const l = await adapter.list(dir); for (const f of l.files) await adapter.remove(f); }
-    else await adapter.mkdir(dir);
-    await adapter.writeBinary(path, bytes.buffer as ArrayBuffer);
-    const fileObj = (typeof File === 'function') ? new File([bytes as BlobPart], safe, { type: 'application/pdf' }) : null;
-    const nav = navigator as ShareCapableNavigator;
-    if (fileObj && nav.canShare?.({ files: [fileObj] }) && nav.share) {
-      try { await nav.share({ files: [fileObj] }); return { savedPath: null }; }
-      catch (e) { if (e instanceof Error && e.name === 'AbortError') return { savedPath: null }; }
-    }
-    if (typeof appExt.openWithDefaultApp === 'function') await appExt.openWithDefaultApp(path);
+    // Der Kit-Baustein leert den Export-Ordner (eigene PDFs still, Fremdes nur nach Rückfrage),
+    // schreibt die Datei und bietet sie dem System an. Er wirft nicht; Fehler meldet er selbst.
+    const kit = getLang() === 'de' ? SHARE_EXPORT_STRINGS_DE : SHARE_EXPORT_STRINGS_EN;
+    await shareExport(app, bytes, { dir: '.paperize-export', fileName: `${sanitizeBase(ctx.baseName)}.pdf`, mime: 'application/pdf', strings: kit });
     return { savedPath: null };
   }
   // Der Pfad kommt fertig aus resolveVersionedOutputPath — dort lebt die {version}-Zählung,

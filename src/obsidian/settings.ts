@@ -25,6 +25,8 @@ export interface PaperizeSettings {
   imageMaxWidthPct: number;
   outputMode: OutputMode;
   customFolder: string;
+  /** Gespeicherte PDF danach mit der Standard-App öffnen (nicht im Modus share). */
+  openAfter: boolean;
   /** Dateiname-Schema, Platzhalter siehe src/core/filename.ts. */
   filenameTemplate: string;
   /** Auf-/Zu-Zustand der Settings-Sektionen, Key = SectionDef.key. */
@@ -50,6 +52,7 @@ export const DEFAULT_SETTINGS: PaperizeSettings = {
   imageMaxWidthPct: 100,
   outputMode: 'nextToNote',
   customFolder: '',
+  openAfter: false,
   filenameTemplate: DEFAULT_FILENAME_TEMPLATE,
   uiCollapsed: {},
   pageBreakMarker: '\\pagebreak',
@@ -226,7 +229,10 @@ export class PaperizeSettingTab extends PluginSettingTab {
         // stehen, auch nach vollem Tab-Neuaufbau). Weglassen wirkt in BEIDEN Pfaden, weil
         // getSettingDefinitions() bei jedem update()/Rebuild neu ausgewertet wird.
         ...(s.outputMode === 'customFolder'
-          ? [{ name: t('settings.customFolder.name'), control: { type: 'text', key: 'customFolder' } }]
+          ? [{ name: t('settings.customFolder.name'), control: { type: 'folder', key: 'customFolder' } }]
+          : []),
+        ...(s.outputMode !== 'share'
+          ? [{ name: t('settings.openAfter.name'), control: { type: 'toggle', key: 'openAfter' } }]
           : []),
         { name: t('settings.filename.name'), desc: t('settings.filename.desc'),
           control: { type: 'text', key: 'filenameTemplate', placeholder: DEFAULT_FILENAME_TEMPLATE } },

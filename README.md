@@ -107,7 +107,8 @@ expanded and the rest remembering whether you left them open.
 | Section | Setting | Description | Default |
 | --- | --- | --- | --- |
 | Output | **Output destination** | Where the PDF is written: *next to the note*, *Obsidian attachment folder*, *custom folder*, or *share/open out of the vault*. | Next to the note |
-| Output | **Custom output folder** | Vault-relative folder. Only shown when the destination is *custom folder*. | *(empty)* |
+| Output | **Custom output folder** | Vault-relative folder, with folder suggestions as you type. Only shown when the destination is *custom folder*. | *(empty)* |
+| Output | **Open the PDF after export (default app)** | Opens the saved file in your default PDF app. Hidden in the *share/open* mode, which always opens or shares. | Off |
 | Output | **Filename scheme** | See [below](#filename-scheme). | `{title}` |
 | Page | **Page size** | A4 or Letter. | A4 |
 | Page | **Margins (mm)** | Page margin on all four sides, 12–50 mm. | 20 mm |
@@ -140,7 +141,7 @@ typo shows up in the filename instead of silently disappearing; an empty scheme 
 `{title}`.
 
 **`{version}` is how you avoid overwriting.** Without it, exporting twice replaces the previous
-PDF. With it, each export counts up to the next free name (`Report v1.pdf`, `Report v2.pdf`, …).
+PDF — Paperize asks before it does. With it, each export counts up to the next free name (`Report v1.pdf`, `Report v2.pdf`, …).
 It has no effect in the *attachment folder* mode, where Obsidian resolves collisions itself.
 
 <img src="https://raw.githubusercontent.com/johannes-kaindl/obsidian-paperize/main/docs/images/filename-versions.png" alt="The file explorer showing Quarterly Field Report v1.pdf and v2.pdf side by side with the note, after exporting twice with the {title} v{version} scheme" width="600">

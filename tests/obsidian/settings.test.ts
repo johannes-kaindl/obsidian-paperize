@@ -174,7 +174,7 @@ describe('getSettingDefinitions', () => {
     // Bewusst als Literal-Liste: eine aus dem Code abgeleitete Erwartung wuerde jede
     // Auslassung mit-ableiten und den Regressionsschutz aufheben.
     const expected = [
-      'outputMode', 'customFolder', 'filenameTemplate',
+      'outputMode', 'customFolder', 'openAfter', 'filenameTemplate',
       'pageSize', 'marginMm',
       'fontChoice', 'baseSizePt', 'lineHeight', 'imageMaxWidthPct',
       'showTitle', 'showFrontmatter', 'pageNumbers', 'runningHeaderFooter',
