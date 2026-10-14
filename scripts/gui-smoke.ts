@@ -50,7 +50,7 @@
  * Typen: `tsconfig.scripts.json` (im `gate` über `npm run typecheck:scripts`).
  */
 
-import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { join } from 'node:path';
@@ -94,6 +94,8 @@ const PUNKTE = [
   'D5 Notiz ohne Inhalt erzeugt Meldung statt leerem PDF',
   'E1 {version} zählt hoch statt zu überschreiben',
   'E2 ohne {version} wird überschrieben, nicht gezählt',
+  'E5 Rückfrage vor dem Ersetzen: „Cancel“ lässt die Datei unverändert',
+  'E6 Rückfrage vor dem Ersetzen: „Replace“ ersetzt sie',
   'E3 eigener Ordner wird angelegt und beschrieben',
   'E4 verbotene Zeichen im Schema werden bereinigt',
   'G1 Wikilink-Embed, Markdown-Bild und Inline-Bild landen als Bilder im PDF',
@@ -201,7 +203,13 @@ async function readSettings(cdp: Cdp): Promise<Record<string, unknown>> {
  * Schreibdauer mal Text und mal nicht: sporadisch rot bei intaktem Code, und das ist
  * teurer als dauerhaft rot.
  */
-async function exportNote(cdp: Cdp, notePath: string): Promise<string> {
+/** Antwort auf die Rückfrage „Vorhandene PDF ersetzen?“ (seit Welle 22); ohne Angabe wie ein Nutzer: ersetzen. */
+type Rueckfrage = 'ersetzen' | 'behalten';
+/** Hat der letzte exportNote() die Rückfrage gesehen? */
+let rueckfrageGesehen = false;
+
+async function exportNote(cdp: Cdp, notePath: string, antwort: Rueckfrage = 'ersetzen'): Promise<string> {
+  rueckfrageGesehen = false;
   await clearNotices(cdp);
   const offen = await openExisting(cdp, notePath, 'preview');
   if (!offen) throw new Error(`Notiz ließ sich nicht öffnen oder rendern: ${notePath}`);
@@ -210,12 +218,25 @@ async function exportNote(cdp: Cdp, notePath: string): Promise<string> {
     app.commands.executeCommandById(${JSON.stringify(`${PLUGIN_ID}:export-pdf`)});
     return true;
   `);
-  const text = await pollUntil<string>(
-    cdp,
-    'const t = [...document.querySelectorAll(".notice")].map((n) => n.textContent.trim()).join(" | "); return t || null;',
-    15_000,
-    250,
-  );
+  // Der Fortschritts-Hinweis („Exporting PDF…“ mit Cancel-Knopf) ist keine Ergebnis-Notice: er trägt einen <button>.
+  // Steht stattdessen die Ersetzen-Rückfrage (Modal), wird sie wie ein Nutzer beantwortet (UI-STANDARD §2: Cancel links,
+  // Bestätigen rechts) und danach weitergewartet.
+  const ergebnis = `
+    const modal = document.querySelector(".modal-container .modal-button-container");
+    if (modal) return "__RUECKFRAGE__";
+    const t = [...document.querySelectorAll(".notice")].filter((n) => !n.querySelector("button")).map((n) => n.textContent.trim()).join(" | ");
+    return t || null;`;
+  let text = await pollUntil<string>(cdp, ergebnis, 15_000, 250);
+  if (text === '__RUECKFRAGE__') {
+    rueckfrageGesehen = true;
+    await cdp.evaluate(`
+      const knoepfe = [...document.querySelectorAll(".modal-container .modal-button-container button")];
+      const ziel = ${antwort === 'ersetzen' ? 'knoepfe[knoepfe.length - 1]' : 'knoepfe[0]'};
+      if (!ziel) throw new Error("Rückfrage ohne Knopf");
+      ziel.click();
+      return true;`);
+    text = await pollUntil<string>(cdp, ergebnis.replace('if (modal) return "__RUECKFRAGE__";', ''), 15_000, 250);
+  }
   // Der Schreibvorgang läuft asynchron weiter, auch wenn die Notice schon steht.
   await new Promise((r) => setTimeout(r, 600));
   return text ?? (await notices(cdp));
@@ -270,9 +291,9 @@ async function pruefeGrundlage(cdp: Cdp, v: VaultInfo, hinweis: string): Promise
   // die Klasse gehört Obsidian, und dessen eigene Ribbon-Knöpfe stehen davor.
   const ribbon = await cdp.evaluate<boolean>(`
     const kandidaten = [...document.querySelectorAll(".side-dock-ribbon-action")];
-    return kandidaten.some((el) => (el.getAttribute("aria-label") || "").includes("Paperize"));
+    return kandidaten.some((el) => (el.getAttribute("aria-label") || "") === "Export active note as PDF");
   `);
-  record('A3 Ribbon-Knopf vorhanden', ribbon, ribbon ? 'aria-label enthält "Paperize"' : 'kein Ribbon-Knopf mit Paperize-Label');
+  record('A3 Ribbon-Knopf vorhanden', ribbon, ribbon ? 'aria-label = Command-Name „Export active note as PDF“' : 'kein Ribbon-Knopf mit dem Command-Namen als Tooltip');
 }
 
 async function pruefeGrundfall(cdp: Cdp, vaultDir: string): Promise<void> {
@@ -447,7 +468,17 @@ async function pruefeDateiname(cdp: Cdp, vaultDir: string): Promise<void> {
   await setSettings(cdp, { filenameTemplate: '{title}' });
   await exportNote(cdp, notiz);
   await warteAufDatei(join(dir, 'Versionsnotiz.pdf'));
-  await exportNote(cdp, notiz);
+  const vorher = statSync(join(dir, 'Versionsnotiz.pdf')).mtimeMs;
+  await new Promise((r) => setTimeout(r, 1100)); // mtime-Auflösung
+  await exportNote(cdp, notiz, 'behalten');
+  const gefragt = rueckfrageGesehen;
+  await new Promise((r) => setTimeout(r, 800));
+  const unveraendert = statSync(join(dir, 'Versionsnotiz.pdf')).mtimeMs === vorher;
+  record('E5 Rückfrage vor dem Ersetzen: „Cancel“ lässt die Datei unverändert', gefragt && unveraendert, `Rückfrage ${gefragt ? 'erschien' : 'FEHLT'} · Datei ${unveraendert ? 'unverändert' : 'VERÄNDERT'}`);
+  await exportNote(cdp, notiz, 'ersetzen');
+  await new Promise((r) => setTimeout(r, 800));
+  const ersetzt = statSync(join(dir, 'Versionsnotiz.pdf')).mtimeMs > vorher;
+  record('E6 Rückfrage vor dem Ersetzen: „Replace“ ersetzt sie', rueckfrageGesehen && ersetzt, `Rückfrage ${rueckfrageGesehen ? 'erschien' : 'FEHLT'} · Datei ${ersetzt ? 'ersetzt' : 'NICHT ersetzt'}`);
   const anzahl = readdirSync(dir).filter((f) => f === 'Versionsnotiz.pdf').length;
   record(
     'E2 ohne {version} wird überschrieben, nicht gezählt',
