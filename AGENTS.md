@@ -1,7 +1,7 @@
 # AGENTS.md — obsidian-paperize
 
 > **Workspace-Standards:** Die verbindliche Leitkonvention steht in
-> `../../_docs/CONVENTIONS.md` (Modell comply-or-explain). Begründete Abweichungen
+> `../../workspace/_docs/CONVENTIONS.md` (Modell comply-or-explain). Begründete Abweichungen
 > stehen unten unter „Abweichungen von der Leitkonvention".
 
 Conventions for AI agents (Claude Code, Codex, …) working on this repository.
@@ -179,7 +179,7 @@ Einordnung: [`SECURITY.md`](https://github.com/johannes-kaindl/obsidian-paperize
   (EN `*.md` + DE `*.de.md`), sonst driften die Versionen auseinander.
 - **Absolute GitHub-URLs** für Bilder/Datei-Links in READMEs: Das Community-Directory
   löst relative Pfade nicht auf (Carry-over-Gotcha aus Letterhead).
-- Workspace-weite Standards: `../../_docs/CONVENTIONS.md`.
+- Workspace-weite Standards: `../../workspace/_docs/CONVENTIONS.md`.
 
 ## Gotchas
 
