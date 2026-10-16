@@ -148,3 +148,9 @@ ihrer jeweiligen Version belegt, nicht bloß behauptet.
 Vier Prüfpunkte, alle am PDF gemessen (Zahl der `/Subtype /Image`-Objekte, nicht Dateigröße): G1 Wikilink-Embed, Markdown-Bild und Inline-Bild; G2 entferntes Bild über einen **treibereigenen** lokalen Server (kein Netz nötig); G3 ein Host, der nie antwortet — das PDF muss trotzdem entstehen, mit `[Bild: alt]`; G4 Bild im Listenpunkt und in der Tabellenzelle (Kit ≥ 0.42.0).
 
 **Nicht getestet, nicht grün:** WebP und AVIF (auf dem Entwicklungsrechner gab es keinen Encoder, das Fixture enthält sie nicht) — ob Obsidians Renderer sie in den Canvas bekommt, ist offen. Gemessen sind PNG, JPEG, GIF, BMP und SVG sowie ein 8000×6000-PNG.
+
+## H · Teilen-Modus
+
+Drei Prüfpunkte für den Ausgabemodus „Share“ (Kit-Baustein `share-export`, Ordner `.paperize-export` im Vault-Stamm). Der Treiber ersetzt `app.openWithDefaultApp` und `navigator.canShare` im Renderer durch einen Stub, der die Pfade nur merkt: Auf dem Desktop würde der Baustein die fertige Datei sonst mit der PDF-App öffnen. Der Stub wird im `finally` und beim Abbruch zurückgenommen, der Ordner vor jedem Fall neu hergestellt (nicht erst danach). H1: Eine Fremddatei im Ordner löst die Rückfrage aus; „Keep them“ lässt sie liegen, ein Rest `alt.pdf` verschwindet trotzdem. H2: „Delete them“ löscht auch die Fremddatei. H3: Ohne Fremddatei bleibt die Rückfrage aus, und genau der Pfad `.paperize-export/Versionsnotiz.pdf` geht an den Stub.
+
+Gegenproben: Mit `if (!clear && false) return;` im vendorten Baustein (Keep löscht trotzdem) wurde H1 rot, H2 und H3 blieben grün. Mit „alles ist fremd“ und „Rückfrage verneint immer“ wurden H2 und H3 rot. Zurückgesetzt per `git checkout` der Datei (sie trug keine eigenen Änderungen); danach 41 von 41 grün.

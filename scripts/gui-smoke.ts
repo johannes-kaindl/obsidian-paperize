@@ -50,7 +50,7 @@
  * Typen: `tsconfig.scripts.json` (im `gate` über `npm run typecheck:scripts`).
  */
 
-import { existsSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { join } from 'node:path';
@@ -108,6 +108,9 @@ const PUNKTE = [
   'F4 der Tab ist in fünf Sektionen gegliedert — auf einem der beiden Pfade',
   'F5 der gezeichnete Tab führt so viele Zeilen wie die Definitionen',
   'F6 die Hilfe-Zeile steht als erste Zeile oben im Settings-Tab',
+  'H1 Teilen: Fremddatei im Export-Ordner löst die Rückfrage aus, „Keep them“ lässt sie liegen',
+  'H2 Teilen: „Delete them“ löscht die Fremddatei, eigene Reste verschwinden in beiden Fällen',
+  'H3 Teilen: ohne Fremddatei keine Rückfrage, die Datei geht an die Standard-App (Stub)',
 ] as const;
 
 const bilanz = createBilanz({ punkte: PUNKTE });
@@ -507,6 +510,128 @@ async function pruefeDateiname(cdp: Cdp, vaultDir: string): Promise<void> {
   );
 }
 
+/* ------------------------------------------------------------ Teilen-Modus */
+
+/** Der Ordner, in den der Teilen-Modus schreibt (`writePdf`: `.paperize-export`, direkt im Vault-Stamm). */
+const TEILEN_ORDNER = '.paperize-export';
+
+/** Ersetzt `openWithDefaultApp` und `navigator.canShare` im Renderer für die Dauer der Teilen-Punkte: auf dem Desktop öffnet
+ *  `shareExport` die fertige Datei mit der Standard-App (PDF-Programm), und das wäre ein fremdes Fenster auf dem Bildschirm des
+ *  Nutzers. Der Stub merkt sich die Pfade statt dessen. Beides wird danach auf den Ausgangszustand gestellt (`stubAus`). */
+const STUB_AN = `
+  if (!window.__pzOrig) {
+    window.__pzOrig = {
+      hadOpen: Object.prototype.hasOwnProperty.call(app, 'openWithDefaultApp'), open: app.openWithDefaultApp,
+      hadShare: Object.prototype.hasOwnProperty.call(navigator, 'canShare'), canShare: navigator.canShare,
+    };
+  }
+  window.__pzOpened = [];
+  app.openWithDefaultApp = async (pfad) => { window.__pzOpened.push(pfad); };
+  navigator.canShare = () => false;
+  return true;`;
+const STUB_AUS = `
+  const o = window.__pzOrig;
+  if (o) {
+    if (o.hadOpen) app.openWithDefaultApp = o.open; else delete app.openWithDefaultApp;
+    if (o.hadShare) navigator.canShare = o.canShare; else delete navigator.canShare;
+    delete window.__pzOrig;
+  }
+  delete window.__pzOpened;
+  return true;`;
+
+/** Export im Teilen-Modus auslösen. Antwortet auf die Rückfrage („Delete them“ rechts, „Keep them“ links, UI-STANDARD §2),
+ *  falls sie erscheint; liefert, ob sie erschien, und die Pfade, die an die (Stub-)Standard-App gingen. */
+async function exportTeilen(cdp: Cdp, notePath: string, antwort: 'loeschen' | 'behalten'): Promise<{ rueckfrage: boolean; geoeffnet: string[] }> {
+  await cdp.evaluate(`window.__pzOpened = []; return true;`);
+  await clearNotices(cdp);
+  const offen = await openExisting(cdp, notePath, 'preview');
+  if (!offen) throw new Error(`Notiz ließ sich nicht öffnen oder rendern: ${notePath}`);
+  await closeExtraLeaves(cdp);
+  await cdp.evaluate(`
+    app.commands.executeCommandById(${JSON.stringify(`${PLUGIN_ID}:export-pdf`)});
+    return true;
+  `);
+  // Entweder erscheint die Rückfrage, oder die Datei geht (ohne Rückfrage) an die Standard-App. Der Fortschritts-Hinweis
+  // („Exporting PDF…“) trägt einen <button> in der Notice, nicht in `.modal-container`.
+  const stand = await pollUntil<string>(
+    cdp,
+    `if (document.querySelector(".modal-container .modal-button-container")) return "rueckfrage";
+     if (window.__pzOpened && window.__pzOpened.length) return "geoeffnet";
+     return null;`,
+    15_000,
+    250,
+  );
+  let rueckfrage = false;
+  if (stand === 'rueckfrage') {
+    rueckfrage = true;
+    await cdp.evaluate(`
+      const knoepfe = [...document.querySelectorAll(".modal-container .modal-button-container button")];
+      const ziel = ${antwort === 'loeschen' ? 'knoepfe[knoepfe.length - 1]' : 'knoepfe[0]'};
+      if (!ziel) throw new Error("Rückfrage ohne Knopf");
+      ziel.click();
+      return true;`);
+    await pollUntil<boolean>(cdp, `return window.__pzOpened && window.__pzOpened.length ? true : null;`, 15_000, 250);
+  }
+  await new Promise((r) => setTimeout(r, 400));
+  const geoeffnet = await cdp.evaluate<string[]>(`return window.__pzOpened || [];`);
+  return { rueckfrage, geoeffnet };
+}
+
+/** Zustand VOR dem Lauf herstellen, nicht erst im `finally`: ein abgebrochener Vorlauf lässt Reste im Ordner zurück. */
+function stelleTeilenOrdnerHer(vaultDir: string, mitFremddatei: boolean): string {
+  const ordner = join(vaultDir, TEILEN_ORDNER);
+  rmSync(ordner, { recursive: true, force: true });
+  mkdirSync(ordner, { recursive: true });
+  writeFileSync(join(ordner, 'alt.pdf'), '%PDF-1.4 Rest eines früheren Exports');
+  if (mitFremddatei) writeFileSync(join(ordner, 'fremd.txt'), 'gehört nicht dem Plugin');
+  return ordner;
+}
+
+async function pruefeTeilen(cdp: Cdp, vaultDir: string): Promise<void> {
+  console.log('\nH · Teilen-Modus (Fremddatei im Export-Ordner)');
+
+  const notiz = 'Unterordner/Versionsnotiz.md';
+  const erwartet = `${TEILEN_ORDNER}/Versionsnotiz.pdf`;
+  await cdp.evaluate(STUB_AN);
+  try {
+    await setSettings(cdp, { outputMode: 'share' });
+
+    // Fall 1 — Fremddatei, Antwort „Keep them“.
+    let ordner = stelleTeilenOrdnerHer(vaultDir, true);
+    const behalten = await exportTeilen(cdp, notiz, 'behalten');
+    const inhalt1 = readdirSync(ordner).sort();
+    record(
+      'H1 Teilen: Fremddatei im Export-Ordner löst die Rückfrage aus, „Keep them“ lässt sie liegen',
+      behalten.rueckfrage && inhalt1.includes('fremd.txt') && inhalt1.includes('Versionsnotiz.pdf') && !inhalt1.includes('alt.pdf'),
+      `Rückfrage ${behalten.rueckfrage ? 'erschien' : 'FEHLT'} · Ordner: ${inhalt1.join(', ') || '(leer)'}`,
+    );
+
+    // Fall 2 — Fremddatei, Antwort „Delete them“.
+    ordner = stelleTeilenOrdnerHer(vaultDir, true);
+    const loeschen = await exportTeilen(cdp, notiz, 'loeschen');
+    const inhalt2 = readdirSync(ordner).sort();
+    record(
+      'H2 Teilen: „Delete them“ löscht die Fremddatei, eigene Reste verschwinden in beiden Fällen',
+      loeschen.rueckfrage && !inhalt2.includes('fremd.txt') && !inhalt2.includes('alt.pdf') && inhalt2.includes('Versionsnotiz.pdf'),
+      `Rückfrage ${loeschen.rueckfrage ? 'erschien' : 'FEHLT'} · Ordner: ${inhalt2.join(', ') || '(leer)'}`,
+    );
+
+    // Fall 3 — nur eigene Reste: keine Rückfrage. Dazu der Beleg, dass die Standard-App nur über den Stub gerufen wurde.
+    ordner = stelleTeilenOrdnerHer(vaultDir, false);
+    const still = await exportTeilen(cdp, notiz, 'loeschen');
+    const inhalt3 = readdirSync(ordner).sort();
+    const nurErwartet = still.geoeffnet.length === 1 && still.geoeffnet[0] === erwartet;
+    record(
+      'H3 Teilen: ohne Fremddatei keine Rückfrage, die Datei geht an die Standard-App (Stub)',
+      !still.rueckfrage && nurErwartet && inhalt3.length === 1 && inhalt3[0] === 'Versionsnotiz.pdf',
+      `Rückfrage ${still.rueckfrage ? 'ERSCHIEN' : 'blieb aus'} · an die App: ${still.geoeffnet.join(', ') || '(nichts)'} · Ordner: ${inhalt3.join(', ') || '(leer)'}`,
+    );
+  } finally {
+    await cdp.evaluate(STUB_AUS).catch(() => undefined);
+    rmSync(join(vaultDir, TEILEN_ORDNER), { recursive: true, force: true });
+  }
+}
+
 /** Bilder im PDF zaehlen: jedes eingebettete Bild ist ein `/Subtype /Image`-Objekt (JPEG,
  *  `/DCTDecode`). Zaehlt Bloecke der IR 1:1, weil der Renderer je Bildblock genau eins schreibt. */
 function pdfBilder(bytes: Buffer): number {
@@ -741,7 +866,9 @@ async function main(): Promise<void> {
   // Hauptzweig, faehrt den Schritt, druckt die Bilanz, Exit 130 — der fruehere lokale Handler lief neben dem `finally`
   // her (Rennen). `vorher` ist zum Zeitpunkt des Signals der jeweils aktuelle Wert (per closure, kein Snapshot).
   const zustandZurueck = async (): Promise<void> => {
+    await cdp.evaluate(STUB_AUS).catch(() => undefined);
     if (vorher) await setSettings(cdp, vorher);
+    if (vaultDir) rmSync(join(vaultDir, TEILEN_ORDNER), { recursive: true, force: true });
     if (vaultDir && !behalten) raeumePdfs(vaultDir);
   };
   const zustand = beimAbbruch(zustandZurueck, 'Einstellungen und erzeugte PDFs zurücksetzen');
@@ -775,12 +902,12 @@ async function main(): Promise<void> {
     // sogar einen normal durchgelaufenen Testlauf bis zum `finally`). Ohne diese Reparatur
     // wuerde JEDER kuenftige Lauf den kaputten Wert als "Original" uebernehmen und dauerhaft
     // auf sich selbst zurueckschreiben — eine Korruption, die sich selbst verewigt.
-    const kaputtesVorher = vorher.outputMode === 'customFolder' || vorher.customFolder === 'Export/PDF';
+    const kaputtesVorher = vorher.outputMode === 'customFolder' || vorher.outputMode === 'share' || vorher.customFolder === 'Export/PDF';
     record(
       'A0 Kein liegen gebliebener Test-Ausgabepfad aus einem abgebrochenen Vorlauf',
       !kaputtesVorher,
       kaputtesVorher
-        ? 'outputMode/customFolder trugen den E3-Testwert — auf Plugin-Default (nextToNote/"") zurueckgesetzt'
+        ? 'outputMode/customFolder trugen einen Testwert (E3 oder H) — auf Plugin-Default (nextToNote/"") zurueckgesetzt'
         : 'Ausgangszustand unauffaellig',
     );
     if (kaputtesVorher) {
@@ -795,6 +922,7 @@ async function main(): Promise<void> {
     await pruefeDateiname(cdp, vaultDir);
     await pruefeBilder(cdp, vaultDir);
     await pruefeSettings(cdp);
+    await pruefeTeilen(cdp, vaultDir);
   } finally {
     // Nach Ctrl-C räumt das Abbruch-Modul auf, druckt die Bilanz und beendet den Prozess; dieser Zweig darf dann weder ein
     // zweites Mal aufräumen noch die Bilanz ein zweites Mal drucken.
