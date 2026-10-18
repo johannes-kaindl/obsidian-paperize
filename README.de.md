@@ -52,7 +52,9 @@ Desktop, iPhone und iPad.
 Repository: [github.com/johannes-kaindl/obsidian-paperize](https://github.com/johannes-kaindl/obsidian-paperize)
 (Quell-Mirror: [git.jkaindl.de/jkaindl/obsidian-paperize](https://git.jkaindl.de/jkaindl/obsidian-paperize))
 
-### Aus Obsidian (sobald im Community-Verzeichnis gelistet)
+### Aus dem Community-Plugins-Browser von Obsidian (empfohlen)
+
+Paperize ist im Community-Plugins-Browser gelistet:
 
 1. **Einstellungen → Community-Plugins → Durchsuchen** öffnen.
 2. Nach **„Paperize"** suchen und **Installieren** wählen.
