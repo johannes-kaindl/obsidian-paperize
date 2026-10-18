@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The README now describes installing from the Community Plugins directory, where Paperize is listed (it said "once listed"). Same in the German README.
+
 ## [0.5.0] — 2026-10-14
 
 ### Added
