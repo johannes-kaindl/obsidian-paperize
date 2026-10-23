@@ -1,10 +1,10 @@
 {
   "source": "obsidian-kit",
-  "version": "0.60.2",
-  "sha": "3029c00",
+  "version": "0.65.0",
+  "sha": "063c419",
   "vendored": "pdf/*.ts, vault-path.ts",
-  "code_kit_version": "0.27.1",
-  "code_kit_vendored": "i18n.ts, settings.ts, filename-template.ts, data-url.ts, local-stamp.ts",
+  "code_kit_version": "0.34.0",
+  "code_kit_vendored": "i18n.ts, settings.ts, filename-template.ts, data-url.ts, local-stamp.ts, rel-path.ts",
   "note": "Verbatim snapshot aus ZWEI Quellen. Never hand-edit. Pins in tools/kit-sync.json, re-vendor via tools/sync-kit.sh (zentrales kit-sync im Dach). Seit obsidian-kit 2ab1bb5 liegt die domaenenfreie pure-Teilmenge in code-kit; der Kopf jeder Datei nennt ihre Herkunft. Seit 0.22.0 laufen pdf/layout.ts und pdf/options.ts mit. obsidian/collapsible.ts liegt in ../kit-obsidian/, siehe dortige VENDOR.json.",
-  "code_kit_sha": "ac89f10"
+  "code_kit_sha": "065b068"
 }

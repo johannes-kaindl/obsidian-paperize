@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Internal: the plugin now builds on the shared library at obsidian-kit 0.65.0 and code-kit 0.34.0 (it was 0.60.2 and 0.27.1). Nothing changes for you: the PDF engine and the settings helpers are byte-identical to before. The only code change is how the "share/open" mode checks the exported file name; it now also refuses a name made of `.` or `..` with spaces around it, which Paperize never produces (names are cleaned first and end in `.pdf`).
+
 ## [0.5.1] — 2026-10-18
 
 ### Changed
