@@ -83,6 +83,7 @@ import {
   closeExtraLeaves,
   openExisting,
   pollUntil,
+  schliesseEinstellungen,
   setAppConfig,
   setPluginSetting,
 } from '../../tools/obsidian-cdp/cdp.js';
@@ -639,7 +640,7 @@ async function main(): Promise<void> {
         await ziel.send('Page.bringToFront');
       } else if (settingsCdp) {
         // Zurück ins Hauptfenster, sonst misst der nächste Shot im falschen Dokument.
-        await cdp.evaluate('app.setting.close(); return true;');
+        await schliesseEinstellungen(cdp);
         await cdp.send('Page.bringToFront');
         if (settingsCdp !== cdp) settingsCdp.close();
         settingsCdp = null;
@@ -662,7 +663,7 @@ async function main(): Promise<void> {
     }
   } finally {
     if (settingsCdp && settingsCdp !== cdp) settingsCdp.close();
-    try { await cdp.evaluate('app.setting.close(); return true;'); } catch { /* Fenster evtl. schon zu */ }
+    try { await schliesseEinstellungen(cdp); } catch { /* Fenster evtl. schon zu */ }
     cdp.close();
   }
 

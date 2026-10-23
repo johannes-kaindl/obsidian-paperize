@@ -57,7 +57,7 @@ import { join } from 'node:path';
 import { cwd } from 'node:process';
 
 import { createBilanz, parseArgs, runDriver } from '../../tools/obsidian-cdp/bilanz.js';
-import { Cdp, attachTo, beimAbbruch, bereiteInstanzVor, clearNotices, closeExtraLeaves, istAbgebrochen, notices, openExisting, pollUntil, requireVisible } from '../../tools/obsidian-cdp/cdp.js';
+import { Cdp, attachTo, beimAbbruch, bereiteInstanzVor, clearNotices, closeExtraLeaves, istAbgebrochen, notices, openExisting, pollUntil, requireVisible, schliesseEinstellungen } from '../../tools/obsidian-cdp/cdp.js';
 import { buildVault, requireEigenerBuild, stagingVaultDir } from '../../tools/obsidian-cdp/vault.js';
 
 const REPO_NAME = 'obsidian-paperize';
@@ -826,7 +826,7 @@ async function pruefeSettings(cdp: Cdp): Promise<void> {
     );
   }
 
-  await cdp.evaluate('app.setting.close(); return true;');
+  await schliesseEinstellungen(cdp);
 }
 
 /* ------------------------------------------------------------------- Lauf */
