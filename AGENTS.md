@@ -1,135 +1,24 @@
 # AGENTS.md — obsidian-paperize
 
-> **Workspace-Standards:** Die verbindliche Leitkonvention steht in
-> `../../workspace/_docs/CONVENTIONS.md` (Modell comply-or-explain). Begründete Abweichungen
-> stehen unten unter „Abweichungen von der Leitkonvention".
+> **Workspace-Standards:** Die verbindliche Leitkonvention steht in `../../workspace/_docs/CONVENTIONS.md` (Modell comply-or-explain). Begründete Abweichungen stehen unten unter „Abweichungen von der Leitkonvention".
 
 Conventions for AI agents (Claude Code, Codex, …) working on this repository.
 
 ## Project character
 
-Obsidian-Plugin „Paperize": exportiert die aktive Notiz als sauberes, textselektierbares
-Vektor-PDF — **kein** Briefkopf, keine Marke, nur der Notizinhalt. Bewusster Gegenpart zu
-Letterhead: Letterhead formatiert einen Geschäftsbrief, Paperize gibt einfach die Notiz
-als PDF aus, mit Standard-Markdown-Unterstützung und garantierter Degradation statt
-Abbruch. Desktop **und** iOS/iPad (`isDesktopOnly: false`) erzeugen echte Vektor-PDF-Bytes.
+Obsidian-Plugin „Paperize": exportiert die aktive Notiz als sauberes, textselektierbares Vektor-PDF — **kein** Briefkopf, keine Marke, nur der Notizinhalt. Bewusster Gegenpart zu Letterhead: Letterhead formatiert einen Geschäftsbrief, Paperize gibt einfach die Notiz als PDF aus, mit Standard-Markdown-Unterstützung und garantierter Degradation statt Abbruch. Desktop **und** iOS/iPad (`isDesktopOnly: false`) erzeugen echte Vektor-PDF-Bytes.
 
 - **Plugin-ID:** `paperize` (deployed unter `.obsidian/plugins/paperize/`).
-- **Nicht Zero-Build:** Anders als Letterhead ist dies ein TS+esbuild-Projekt. `main.js`
-  ist ein Build-Artefakt (`.gitignore`) — es wird von `npm run build` bzw. der
-  Release-Action aus `src/` erzeugt, nicht committet.
+- **Nicht Zero-Build:** Anders als Letterhead ist dies ein TS+esbuild-Projekt. `main.js` ist ein Build-Artefakt (`.gitignore`) — es wird von `npm run build` bzw. der Release-Action aus `src/` erzeugt, nicht committet.
 
 ## Architecture principles
 
-- Kein Electron-/Node-API im Laufzeitpfad → mobil-tauglich. Nur Obsidian-API +
-  Browser-APIs.
-- **Pure Engine vendored:** `src/vendor/kit/pdf/` ist die pure PDF-Engine aus dem Kit
-  (Layout, Metrics, Writer, IR) — Obsidian-frei, per `tools/sync-kit.sh` übernommen, nicht von
-  Hand editiert. Änderungen an der Engine gehören stromaufwärts ins Kit, nicht hier. **Den
-  aktuellen Stand nennt `src/vendor/kit/VENDOR.json`, nicht diese Zeile** (sie hing bis
-  2026-08-20 auf `@0.8.0` fest, während der Vendor längst weitergezogen war — eine Versionsnummer
-  in der Prosa altert still).
-- **DOM→IR-Seam:** `src/vendor/kit/pdf/dom-to-ir.ts` wandelt Obsidians gerenderten Markdown-DOM
-  (`MarkdownRenderer.render`) in die pure Block/Inline-IR des Kits um — der einzige Ort,
-  an dem Obsidian-DOM und pure Engine sich berühren. Nicht unterstützte Elemente werden zu
-  `{ type: 'unsupported' }`-Blöcken (Degradation, kein Abbruch); der Zähler treibt die
-  Zusammenfassungs-Notice in `main.ts`.
-- **Standard-Markdown-Scope:** Überschriften, Absätze, Bold/Italic/Inline-Code,
-  verschachtelte Listen, Blockquotes, HR, Links, Bilder (zu JPEG re-encodiert), Codeblöcke,
-  einfache Tabellen. Alles außerhalb (Callouts, Mathe, Embeds, …) wird vereinfacht
-  dargestellt statt den Export scheitern zu lassen.
-- Reine Funktionen (`src/core/*`, `src/vendor/kit/*`) sind frei von Obsidian-Imports und
-  damit in Node/vitest testbar; `npm run check:pure` erzwingt das.
-- **Vendor-Schichtung:** Das Kit hat zwei Schichten (`src/pure` und `src/obsidian`); der Vendor
-  spiegelt sie. Obsidian-gekoppelte Kit-Module liegen real unter `src/vendor/kit-obsidian/`
-  (`collapsible.ts`, `folder-suggest.ts`, `settings_walker.ts` — letzteres importiert das
-  vorige, beide müssen zusammen mitlaufen). Dieser Ordner steht als einziger Eintrag in
-  `EXCLUDED` in `scripts/check-pure.mjs` — die Ausnahme ist damit benannt statt implizit.
-  Alles übrige im Vendor (`i18n`, `pdf`, `settings`, `vault-path`, `filename-template`) ist pure
-  und bleibt geprüft. Die
-  Grenze verläuft bei **„pure", nicht bei „vendored"**: Ein neues gekoppeltes Kit-Modul gehört
-  in diesen Ordner, nicht in eine weitere Skript-Ausnahme.
-- **Settings-Tab — zweigleisig, `getSettingDefinitions()` ist die eine Wahrheit** (seit 0.3.3):
-  Ab Obsidian 1.13 fragt der Host die Definitionen selbst ab, rendert sie nativ und nimmt die
-  Zeilen in die **Settings-Suche** auf; darunter ruft er `display()`, das über
-  `renderSettingDefinitions` (vendored aus dem Kit) *dieselben* Definitionen nachzeichnet.
-  `minAppVersion` bleibt deshalb 1.8.7. Wer eine Einstellung hinzufügt, ergänzt `groups()` —
-  **nie einen der beiden Render-Pfade einzeln**, sonst driften sie auseinander. `SECTIONS`
-  bleibt die pure Tabelle (Key · i18n-Titel · Startzustand) und speist beides: den
-  Gruppen-Aufbau und die Collapsible-Sektionen des Fallbacks. Testbarkeit unverändert: der
-  Obsidian-Mock ist minimal (`Setting` ist eine leere Klasse), also sind die *Definitionen*
-  unit-testbar und die Render-Pfade nicht — genau deshalb liegt die Wahrheit in den Daten.
-  Drei Fallstricke, alle gemessen (Details in `../REGISTRY.md`):
-  1. **`visible` am Gruppen-Item wertet der native 1.13.7-Renderer nicht aus.** Die Definition
-     lieferte korrekt `false`, die Zeile blieb stehen, auch nach vollem Tab-Neuaufbau. Bedingte
-     Zeilen deshalb **weglassen** statt ausblenden — wirkt in beiden Pfaden, weil
-     `getSettingDefinitions()` bei jedem Rebuild neu ausgewertet wird.
-  2. **Ein interner `display()`-Aufruf löst die 1.13-Deprecation aus.** Der Rebuild liegt in
-     `renderFallback()`; `display()` bleibt nur als Wrapper stehen, weil der Host < 1.13 genau
-     diese Methode ruft.
-  3. **Die Obsidian-Version nicht aus `Info.plist` lesen** — die App aktualisiert sich intern,
-     ohne sie zu ändern (gemessen 1.12.4, tatsächlich 1.13.7). Zur Laufzeit messen:
-     `require('electron').ipcRenderer.sendSync('version')`. Der falsche Wert führte hier zur
-     Fehlannahme, der native Pfad sei gar nicht prüfbar.
-- **`uiCollapsed` erzwingt `mergeSettings`:** Mit dem Sektions-Zustand kam der erste
-  **Objekt-Default** in die Settings. Ein flacher Merge (`Object.assign`/Spread) teilt dessen
-  Referenz mit `DEFAULT_SETTINGS` — das erste Zuklappen mutiert dann die Modul-Defaults. Beide
-  Merge-Stellen in `main.ts` nutzen deshalb das vendored `mergeSettings`; ein Regressionstest
-  hält das fest.
-- **Begrenzte Zahlenwerte gehören in einen Slider, nicht in ein Textfeld:** Textfeld +
-  `if`-Guard im `onChange` verwirft eine Eingabe außerhalb der Grenzen **still** — nichts
-  gespeichert, nichts gemeldet, das Feld zeigt weiter den getippten Wert. Die Anzeige lügt.
-  Ein `slider`-Control mit `min`/`max`/`step` macht den ungültigen Wert unmöglich und zeigt die
-  Grenzen. Gilt für `baseSizePt`/`marginMm`/`lineHeight`/`imageMaxWidthPct`/`headingKeepWithLines`.
-  Den Wert zeigt seit 0.3.3 `displayFormat` (er steht dauerhaft im Namen, mit Einheit) statt
-  `setDynamicTooltip()` — das ist ab 1.13 deprecated und im deklarativen Pfad gar nicht
-  vorhanden, wo es den Wert also **nirgends** mehr angezeigt hätte.
-- **Dateiname-Schema:** `src/core/filename.ts` ist pure und rechnet nur; die `{version}`-Zählung
-  braucht Vault-Zugriff und lebt deshalb in `resolveVersionedOutputPath` (`output.ts`).
-  `hasVersionPlaceholder` ist **load-bearing**: Ohne diesen Guard würde die Suchschleife bei
-  einem Schema ohne `{version}` denselben Namen endlos neu bauen. Im Anhang-Modus bleibt
-  `{version}` wirkungslos — dort löst Obsidian Kollisionen selbst auf, zwei Zähler übereinander
-  ergäben `Bericht v1 1.pdf`.
-  **Seit dem Kit-Anschluss (0.27.0) ist `src/core/filename.ts` ein Shim, keine Eigenimplementierung:**
-  Sanitisierung und Platzhalter-Auflösung liegen in `src/vendor/kit/filename-template.ts`
-  (dort aus yijing-oracle, paperize und letterhead zusammengeführt); lokal bleiben nur
-  `DEFAULT_FILENAME_TEMPLATE`, `FilenameValues` und `hasVersionPlaceholder` — die drei Dinge, die
-  im Kit bewusst keine Entsprechung haben. Wer die Regel ändern will, ändert sie im Kit und
-  re-vendort. ⚠️ **Die Zeichenklasse `INVALID` ist load-bearing** und steht byte-identisch in drei
-  veröffentlichten Plugins: ein zusätzliches oder fehlendes Zeichen benennt bestehende Exporte
-  **still** um. Die engere `sanitizeBase`-Klasse `[\\/:*?"<>|]` aus epub-exporter/apple-health/
-  paperless-storage gehört ausdrücklich **nicht** hierher.
-- **Vault-Pfade:** Ordner normalisieren, fügen und zerlegen kommt aus
-  `src/vendor/kit/vault-path.ts` (`normalizeVaultDir`/`joinVaultPath`/`vaultDirname`), nicht aus
-  lokalen Inline-Rechnungen. Das Freitext-Feld „Eigener Ordner" reicht seinen Wert **roh**
-  dorthin durch — die Normalisierung ist damit der Schutz und keine Kosmetik.
-  ⚠️ **Aber nur die des ORDNER-Anteils.** `joinVaultPath` hängt den Dateinamen unverändert an
-  (das sagt auch der Modulkopf des Kits: „KEIN Ersatz für das Säubern"). Der zweite Freitext-Weg
-  — das Schema-Feld — läuft deshalb **nicht** hier durch, sondern über
-  `src/core/filename.ts` → `src/vendor/kit/filename-template.ts`; `sanitizeBase`/`sanitizeFilename`
-  bleiben dafür zuständig und dürfen nicht mit dem Argument „macht doch `joinVaultPath`"
-  wegfallen. `vaultDirname` fängt zusätzlich die `-1`-Falle: `slice(0, lastIndexOf('/'))` schneidet
-  bei einer Datei in der Vault-Wurzel das letzte Zeichen des *Dateinamens* ab und legt daneben
-  einen Phantom-Ordner an. `src/obsidian/main.ts` baut den Anhang-Pfad weiterhin über Obsidians
-  `normalizePath` — anderer Mechanismus, bewusst nicht umgestellt.
-- **SDD-Artefakte liegen im Coding-Cockpit, nicht hier** (CORE-META-12/14 der Workspace-
-  Konventionen): Specs/Plans tragen Arbeitskontext (Schwester-Repo-Interna, absolute Pfade,
-  interne Doku-Referenzen), der in einem öffentlichen Repo niemandem nützt. Das Repo behält die
-  Design-Essenz — diese Gotchas plus `CHANGELOG.md`. **Keine absoluten Pfade außerhalb des Repos**
-  in committete Dateien; im Zweifel Platzhalter (`<code-workspace>/…`, `$VAULT/…`).
-- **`check:pure` ist ein Script, kein grep-Einzeiler** (`scripts/check-pure.mjs`, seit
-  2026-08-03): Der frühere Einzeiler matchte nur `from 'obsidian'` — einfache Anführungszeichen
-  sind der *Paperize*-Stil, das vendored Kit schreibt doppelte. Das Gate war damit blind für
-  genau den Fremdcode, den es prüfen soll, und hätte nie einen vendored Obsidian-Import
-  gemeldet. **Regel:** Ein Gate gegen *fremden* Code darf nicht auf *eigene* Konventionen
-  matchen. Das Script fängt beide Quote-Stile, `import()` und Subpath-Importe, nennt die
-  Fundstellen und trägt die `kit-obsidian`-Ausnahme explizit. Wer es anfasst: gegen einen
-  echten Verstoß in **beiden** Quote-Stilen laufen lassen und den Exit-Code prüfen, nicht nur
-  den Grün-Lauf ansehen — ein Gate, das nie rot wird, ist kein Gate.
-- **Core-14-Schriften only:** Der Font-Layer nutzt ausschließlich die Adobe-Core-14-
-  Standardschriften (Helvetica/Times/Courier-Familien) — keine eingebetteten Schriften,
-  keine Custom-Fonts. Hält die PDFs klein und dependency-frei; bewusste Grenze, nicht
-  „noch nicht implementiert".
+- Kein Electron-/Node-API im Laufzeitpfad → mobil-tauglich. Nur Obsidian-API + Browser-APIs.
+- **Pure Engine vendored:** `src/vendor/kit/pdf/` ist die pure PDF-Engine aus dem Kit, per `tools/sync-kit.sh` übernommen, nicht von Hand editiert. Änderungen an der Engine gehören stromaufwärts ins Kit, nicht hier. **Den aktuellen Stand nennt `src/vendor/kit/VENDOR.json`, nicht diese Zeile** (eine Versionsnummer in der Prosa altert still).
+- **DOM→IR-Seam:** `src/vendor/kit/pdf/dom-to-ir.ts` ist der einzige Ort, an dem Obsidians gerenderter Markdown-DOM und die pure Engine sich berühren. Nicht unterstützte Elemente werden zu `{ type: 'unsupported' }`-Blöcken (Degradation, kein Abbruch); der Zähler treibt die Zusammenfassungs-Notice in `main.ts`.
+- Reine Funktionen (`src/core/*`, `src/vendor/kit/*`) sind frei von Obsidian-Imports und damit in Node/vitest testbar; `npm run check:pure` erzwingt das. Die Grenze verläuft bei „pure", nicht bei „vendored": ein neues Obsidian-gekoppeltes Kit-Modul gehört nach `src/vendor/kit-obsidian/` (einziger Eintrag in `EXCLUDED` von `scripts/check-pure.mjs`), nicht in eine weitere Skript-Ausnahme.
+- **Settings-Tab zweigleisig, `getSettingDefinitions()` ist die eine Wahrheit:** Wer eine Einstellung hinzufügt, ergänzt `groups()` — **nie einen der beiden Render-Pfade einzeln**, sonst driften sie auseinander. `SECTIONS` bleibt die pure Tabelle.
+- **Core-14-Schriften only:** keine eingebetteten Schriften, keine Custom-Fonts — bewusste Grenze, nicht „noch nicht implementiert". Warum und Aufbau: `docs/internal/decisions.md`, `docs/internal/architecture.md`.
 
 ## Commands
 
@@ -142,126 +31,50 @@ npm run build       # typecheck + esbuild --production → main.js (Build-Artefa
 npm run gate        # typecheck + typecheck:test + typecheck:scripts + test + check:pure + lint + build
 npm run smoke:gui   # GUI-Smoke gegen ein LAUFENDES Obsidian (docs/SMOKE.md)
 npm run deploy      # build + cp main.js manifest.json styles.css → $OBSIDIAN_PLUGIN_DIR
+sh tools/sync-kit.sh  # Kit neu vendoren (Pins in tools/kit-sync.json); --check vergleicht nur
 ```
 
 Manuelles Deploy-Ziel: `<vault>/.obsidian/plugins/paperize/`.
 
 ## Releasing
 
-Releases erzeugt **GitHub Actions** (`.github/workflows/release.yml`), getriggert durch
-einen SemVer-Tag-Push (ohne v-Präfix), der GitHub erreicht: `git push github <tag>`. Im
-Unterschied zu Letterheads Zero-Build-Attestation baut dieser Workflow das Plugin frisch
-aus dem getaggten Commit (`npm run gate`, inkl. `build`) und attestiert **das
-Build-Ergebnis** (`main.js`/`manifest.json`/`styles.css`) — das attestierte Subjekt ist
-also kein committeter Quelltext, sondern der reproduzierbar erzeugte Output. Details und
-Einordnung: [`SECURITY.md`](https://github.com/johannes-kaindl/obsidian-paperize/blob/main/SECURITY.md).
-
-- `npm run release -- <version>` ruft das **zentrale** Tooling im Dach
-  (`../tools/release/release.mjs`) — seit 2026-08-13 gibt es keine repo-lokale Kopie mehr,
-  und eine neu auftauchende wäre ein Rückstand, kein Sonderweg. Es bündelt README-Gate,
-  Versions-Bump (inkl. `package-lock.json`), CHANGELOG-Rewrite, das volle `npm run gate`
-  **vor** Commit und Tag, Push nach Forgejo (`origin`), Build gegen den getaggten Stand,
-  Dual-Push-Mirror nach `github` und dessen **Verifikation** (Tag und Branch müssen dort
-  auf dem Release-Commit stehen — ein still fehlgeschlagener Branch-Push friert den Store
-  auf der alten Version ein). Ein Klon ohne das Dach-Verzeichnis ist nicht release-fähig
-  und sagt das mit einer eigenen Meldung.
-- `origin` bleibt Forgejo; nur der Tag muss zusätzlich auf den `github`-Remote, damit
-  der Workflow feuert. Voraussetzung: Actions sind im Mirror-Repo aktiviert und
-  `~/.forgejo-token` existiert lokal für den Forgejo-Release-Schritt.
-- **Nicht mehr** manuell `gh release create` aufrufen: Die Attestation kann nur der
-  Actions-Lauf signieren (OIDC-Identität = Workflow, nicht Laptop).
+Releases erzeugt **GitHub Actions** (`.github/workflows/release.yml`), getriggert durch einen SemVer-Tag-Push (ohne v-Präfix). Der Workflow baut das Plugin frisch aus dem getaggten Commit und attestiert das Build-Ergebnis (Einordnung: [`SECURITY.md`](https://github.com/johannes-kaindl/obsidian-paperize/blob/main/SECURITY.md)). `npm run release -- <version>` ruft das zentrale Tooling im Dach (`../tools/release/release.mjs`); ein Klon ohne Dach ist nicht release-fähig. Mirror, Tag-Push und Store: `../.claude/rules/release-und-store.md`. Voraussetzung: Actions sind im Mirror-Repo aktiviert und `~/.forgejo-token` existiert lokal für den Forgejo-Release-Schritt. **Nicht** manuell `gh release create`: Die Attestation kann nur der Actions-Lauf signieren (OIDC-Identität = Workflow, nicht Laptop).
 
 ## Conventions
 
 - Conventional Commits; SemVer-Tags **ohne** v-Präfix; nur berührte Dateien stagen.
-- Remotes: Forgejo `origin`, GitHub-Mirror für Obsidian-Verzeichnis/BRAT.
-- Doku ist zweisprachig: Änderungen immer in **beiden** Sprachen pflegen
-  (EN `*.md` + DE `*.de.md`), sonst driften die Versionen auseinander.
-- **Absolute GitHub-URLs** für Bilder/Datei-Links in READMEs: Das Community-Directory
-  löst relative Pfade nicht auf (Carry-over-Gotcha aus Letterhead).
+- Remotes: Forgejo `origin`; `github` (Obsidian-Verzeichnis/BRAT) bekommt Branch und Tag nur über `release.mjs`, nie von Hand.
+- Doku ist zweisprachig: Änderungen immer in **beiden** Sprachen pflegen (EN `*.md` + DE `*.de.md`), sonst driften die Versionen auseinander.
+- **Absolute GitHub-URLs** für Bilder/Datei-Links in READMEs: Das Community-Directory löst relative Pfade nicht auf.
+- **Keine absoluten Pfade außerhalb des Repos** in committete Dateien; im Zweifel Platzhalter (`<code-workspace>/…`, `$VAULT/…`). SDD-Artefakte liegen im Coding-Cockpit, nicht hier (CORE-META-12/14).
 - Workspace-weite Standards: `../../workspace/_docs/CONVENTIONS.md`.
 
 ## Gotchas
 
-- `main.js` ist ein **Build-Artefakt** (`.gitignore`) — anders als bei Letterhead nicht
-  committen. Der Release-Workflow baut es serverseitig aus dem getaggten Commit.
-- **`tools/sync-kit.sh` zieht aus ZWEI Quellen** (seit 2026-09-02): `obsidian-kit` liefert
-  `pdf/*.ts`, `vault-path.ts` und die obsidian-gekoppelte Schicht; **`code-kit`** liefert
-  `i18n.ts`, `settings.ts` und `filename-template.ts` — sie sind mit `obsidian-kit@2ab1bb5`
-  („domänenfreie pure-Teilmenge zieht nach code-kit") dorthin ausgezogen. Der Kopf jeder
-  vendorten Datei nennt ihre Herkunft, `VENDOR.json` führt beide Versionen.
-  **Die Zuordnung ist nicht verdrahtet, sondern gesucht** (`quelle_fuer`, seit dem Sweep über
-  die Nachbar-Repos am 2026-09-03): ein Modul wird in `obsidian-kit/src/pure`,
-  `code-kit/src/ts/pure` und `code-kit/src/ts/web` nachgeschlagen, und **alle** Module werden
-  vor dem ersten Kopieren aufgelöst. Die nächste Umschichtung im Kit ergibt damit einen
-  anderen Fundort statt eines toten Skripts — in `vim-dojo` lagen zehn Module in zwei
-  verschiedenen Schichten, in `apple-health` eines davon unter `web/` statt `pure/`.
-  ⚠️ **Vorher scheiterte das Skript still an dieser Umstellung, und der Schaden war größer
-  als der Abbruch:** `cp` fand die drei Module nicht, `set -e` riss den Rest mit — die
-  gekoppelte Schicht lief nicht mehr mit, und **beide `VENDOR.json` wurden nicht mehr
-  geschrieben**. Der Vendor-Stand behauptete danach 0.27.0, während `pdf/` schon auf 0.30.0
-  lag: eine Datei, die über sich selbst die Unwahrheit sagt, und der einzige Ort, an dem man
-  den Stand nachschlägt. Das Skript prüft jetzt **vor** dem ersten Kopieren, ob beide Quellen
-  da sind, und bricht mit einer Erklärung ab statt mitten im Lauf.
-  *Beim Umstellen gemessen: die drei Module sind in `code-kit@0.5.0` inhaltlich
-  byte-gleich mit dem, was vorher aus `obsidian-kit@0.27.0` kam — die `INVALID`-Zeichenklasse
-  also unverändert. Das ist keine Nebensächlichkeit: eine geänderte Klasse benennt bestehende
-  Exporte still um, und ein grünes Gate sagt darüber nichts.*
-- `tools/sync-kit.sh` ist der Vendoring-Sync gegen `obsidian-kit` — ein Aufruf zieht die pure
-  Schicht (`pdf/*.ts`, `i18n.ts`, `settings.ts`, `vault-path.ts`, `filename-template.ts`)
-  **und** die obsidian-gekoppelte
-  (`collapsible.ts`, `folder-suggest.ts`, `settings_walker.ts`) nach, stempelt jede Datei mit
-  der Kit-Version und schreibt beide `VENDOR.json`. Nie von Hand nachziehen. Die gekoppelte
-  Schicht lief bis 2026-08-14 **nicht** mit, obwohl der Header von `collapsible.ts` genau das
-  versprach — die Datei hing dadurch auf 0.16.0 fest (inhaltlich identisch, nur das Etikett war
-  alt). Ein Header, der auf ein Skript zeigt, das die Datei nicht kennt, ist keine Anweisung.
-  Nach jedem Lauf `git status --short` prüfen und den **gesamten** Stand committen: das Skript
-  meldet nur, was man angefordert hat, tut aber dasselbe für jeden Eintrag seiner Schleife.
-- **Ein grüner GUI-Smoke ist erst nach einer Gegenprobe eine Aussage — und die Gegenprobe
-  braucht ihrerseits einen Beleg, dass der Rückbau ankam.** `requireEigenerBuild` liefert den
-  nicht: es prüft, ob Vault-Build und Repo-Build **gleich** sind, nicht ob sie **aktuell** sind.
-  Bricht der Deploy im `tsc`-Schritt ab, bleibt der alte `main.js` in beiden liegen, der Guard
-  ist zufrieden, und der Smoke meldet 29/29 über Code, den man gerade kaputtgemacht hat
-  (gemessen 2026-09-02, zweimal hintereinander). Deshalb bei jeder Gegenprobe den sha1 von
-  `main.js` **vor und nach** dem Deploy vergleichen und bei Gleichstand abbrechen —
-  `docs/SMOKE.md` führt das Rezept.
-- **Das Export-DOM ist nicht das Preview-DOM.** `MarkdownRenderer.render` in einen *detached*
-  Container (`createDiv()`) führt nicht alles aus, was die Live-Ansicht zeigt: Ein Callout-Icon
-  bleibt dort ein nacktes `<svg width="16" height="16">` **ohne Klasse und ohne `aria-hidden`**,
-  während dasselbe Callout im Preview `class="svg-icon lucide-alert-triangle"` trägt. Wer
-  DOM-Verhalten für den Export prüft, misst am Export — ein am Preview-Markup geschriebener
-  Test war 2026-08-04 grün, während das PDF `[Grafik]` zeigte. Abgreifen lässt sich das
-  Export-DOM nur per temporärem `console.log` im Renderpfad (+ `obsidian dev:debug on`).
-- `moment()` aus dem Obsidian-Namespace-Re-Export ist unter diesem TS/obsidian-types-Setup
-  „not callable" — siehe `nowParts()` in `src/obsidian/main.ts` für den lokalen
-  Datums-/Zeit-Formatter als Workaround (liefert `date` für die Fußzeile und `time` für das
-  Dateiname-Schema).
+- `main.js` ist ein **Build-Artefakt** (`.gitignore`) — nicht committen. Der Release-Workflow baut es serverseitig aus dem getaggten Commit.
+
+## Context index
+
+- Bevor du Einstellungen änderst oder den Settings-Tab anfasst (`src/obsidian/settings.ts`, `main.ts`, vendorte Settings-Bausteine): `.claude/rules/settings-tab.md`.
+- Bevor du etwas unter `src/vendor/` änderst, das Kit hebst oder `scripts/check-pure.mjs` anfasst: `.claude/rules/vendor-kit.md`.
+- Bevor du Dateiname-Schema, Ausgabepfade oder `{version}` änderst: `.claude/rules/dateiname-und-pfade.md`.
+- Bevor du den DOM→IR-Weg, Bilder oder Datumsformatierung in `main.ts` anfasst: `.claude/rules/export-dom.md`.
+- Bevor du den GUI-Smoke änderst oder eine Gegenprobe fährst: `.claude/rules/gui-smoke-gegenprobe.md`, `docs/SMOKE.md`; Treiber-Regeln des Dachs in `../.claude/rules/gui-smoke-treiber.md`.
+- Vor Änderungen an Modul-Layout, Schichten, Markdown-Umfang oder Release-Weg: `docs/internal/architecture.md`.
+- Bevor du eine Altentscheidung (Zero-Build, Core-14, kein Node-API, Degradation, Slider, Settings-Definitionen, SDD-Ablage) übernimmst: `docs/internal/decisions.md`.
+- Vor einem Release oder Store-Rescan: `../.claude/rules/release-und-store.md`, Skills `plugin-release-setup` und `store-rescan`.
+- Vor UI-Arbeit: `../UI-STANDARD.md`, `../.claude/rules/ui-bausteine.md`.
 
 ## Memory
 
-Projekt-Memory unter `~/.claude/projects/<slug>/memory/` (Index: `MEMORY.md`).
-Session-Handoff unter `.remember/` (gitignored).
+Projekt-Memory unter `~/.claude/projects/<slug>/memory/` (Index: `MEMORY.md`). Session-Handoff unter `.remember/` (gitignored).
 
 ## Abweichungen von der Leitkonvention
 
-- **`.github/workflows/release.yml` weicht bewusst vom `tools/release-template/` ab.** Die
-  Schritte sind identisch; abweichend sind nur die **Kommentare**, die hier englisch statt
-  deutsch sind (öffentliches Repo mit zweisprachiger Doku) und die Build-vs-Zero-Build-Frage
-  erklären: Das attestierte Subjekt ist hier der reproduzierbar erzeugte **Build-Output**, kein
-  committeter Quelltext. Der `template_drift`-Check des Workspace-Audits meldet das als Drift —
-  er vergleicht Text, nicht Verhalten. Was er zu Recht fand und was gefixt wurde:
-  `actions/checkout`/`setup-node` hingen auf `v4` (2026-08-04 → `v5`).
+- **`.github/workflows/release.yml` weicht bewusst vom `tools/release-template/` ab.** Die Schritte sind identisch; abweichend sind nur die **Kommentare**, die hier englisch statt deutsch sind (öffentliches Repo mit zweisprachiger Doku) und die Build-vs-Zero-Build-Frage erklären: Das attestierte Subjekt ist hier der reproduzierbar erzeugte **Build-Output**, kein committeter Quelltext. Der `template_drift`-Check des Workspace-Audits meldet das als Drift — er vergleicht Text, nicht Verhalten.
 
-Ansonsten folgt dieses Repo dem Standard-Profil
-`ts-node · obsidian-plugin` (TypeScript + esbuild + vitest), im Unterschied zu
-Letterheads bewusstem Zero-Build-Vanilla-JS-Profil.
+Ansonsten folgt dieses Repo dem Standard-Profil `ts-node · obsidian-plugin` (TypeScript + esbuild + vitest), im Unterschied zu Letterheads bewusstem Zero-Build-Vanilla-JS-Profil.
 
 ## Dach-Kontext (obsidian-plugins)
 
-Dieses Repo liegt unter dem Koordinations-Dach `<code-workspace>/obsidian-plugins/`.
-**Vor dem Lösen eines Problems:** `../AGENTS.md` (Kit-first-Regel) und `../REGISTRY.md`
-(Lösungs-Registry) prüfen — viele Probleme sind in Nachbar-Plugins oder im
-`obsidian-kit` bereits gelöst.
-
-**Vor jeder UI-Arbeit** (Views, Modals, Settings-Tabs, CSS): `../UI-STANDARD.md` ist
-verbindlich (Obsidian-nativ first, ein Frontend pro Plugin, nur Theme-CSS-Variablen).
+Dieses Repo liegt unter dem Koordinations-Dach `<code-workspace>/obsidian-plugins/`. **Vor dem Lösen eines Problems:** `../AGENTS.md` (Kit-first-Regel) und `../REGISTRY.md` (Lösungs-Registry) prüfen — viele Probleme sind in Nachbar-Plugins oder im `obsidian-kit` bereits gelöst. **Vor jeder UI-Arbeit** (Views, Modals, Settings-Tabs, CSS): `../UI-STANDARD.md` ist verbindlich.
