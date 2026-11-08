@@ -1,7 +1,7 @@
 // tests/core/desktop-print.test.ts
 import { describe, it, expect } from 'vitest';
 import {
-  profileBodyClass, printBackgroundFor, renderWidthPx, paginationCss, desktopExtraCss, exportCommands,
+  profileBodyClass, printBackgroundFor, renderWidthPx, paginationCss, desktopExtraCss, exportCommands, EDGE_GUARD_CSS,
 } from '../../src/core/desktop-print';
 import type { DesktopPageSettings } from '../../src/core/desktop-print';
 import { obsidianPrintResetCss } from '../../src/vendor/kit/print-css';
@@ -85,6 +85,11 @@ describe('desktopExtraCss', () => {
   it('old shells', () => {
     const css = desktopExtraCss('paper', S, { background: null, muted: null }, false);
     expect(css).not.toContain('@bottom-center');
+  });
+  it('every profile keeps the right frame of full-width boxes inside the page area', () => {
+    for (const p of ['paper', 'screen'] as const) {
+      expect(desktopExtraCss(p, S, { background: null, muted: null }, true)).toContain(EDGE_GUARD_CSS);
+    }
   });
   it('every profile gets the reset', () => {
     for (const p of ['paper', 'screen'] as const) {

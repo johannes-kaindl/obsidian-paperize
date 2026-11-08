@@ -230,6 +230,84 @@ export function seitenText(pdf: string, seite: number): string {
   return werkzeug('pdftotext', ['-layout', '-f', String(seite), '-l', String(seite), pdf, '-']);
 }
 
+/** Erste Seite, auf der `wort` im Textlayer steht (Wortvergleich wie `messeKontrast`); `null`: nirgends. */
+export function findeSeite(pdf: string, wort: string): number | null {
+  const n = leseSeiten(werkzeug('pdfinfo', [pdf]));
+  for (let seite = 1; seite <= n; seite++) {
+    const html = werkzeug('pdftotext', ['-bbox', '-f', String(seite), '-l', String(seite), pdf, '-']);
+    if (leseWorte(html).some((w) => w.text.includes(wort))) return seite;
+  }
+  return null;
+}
+
+/** Kontrast eines Wortes auf der Seite, auf der es steht (Wort-Messung wie `messeKontrast`). */
+export function messeKontrastIrgendwo(pdf: string, wort: string): { ratio: number; fg: number[]; bg: number[]; seite: number } | null {
+  const seite = findeSeite(pdf, wort);
+  if (seite === null) return null;
+  const k = messeKontrast(pdf, wort, seite);
+  return k ? { ...k, seite } : null;
+}
+
+/** Sichtbare Tinte des Kästchens links von `wort` (Aufgabenzeile): Anzahl Pixel, deren Luminanz mehr als 60 vom Grund der Zeile
+ *  abweicht, in einem Streifen von 18 pt links vom Wort bis 1 pt davor, 200 dpi. `null`: Wort nicht gefunden. */
+export function messeKaestchen(pdf: string, wort: string): { tinte: number; seite: number } | null {
+  const seite = findeSeite(pdf, wort);
+  if (seite === null) return null;
+  const box = leseWorte(werkzeug('pdftotext', ['-bbox', '-f', String(seite), '-l', String(seite), pdf, '-'])).find((w) => w.text.includes(wort));
+  if (!box) return null;
+  const k = 200 / 72;
+  const x = Math.max(0, Math.floor((box.x0 - 18) * k));
+  const y = Math.max(0, Math.floor(box.y0 * k) - 2);
+  const w = Math.ceil(17 * k);
+  const h = Math.ceil((box.y1 - box.y0) * k) + 4;
+  const dir = mkdtempSync(join(tmpdir(), 'paperize-kaestchen-'));
+  try {
+    werkzeug('pdftoppm', ['-r', '200', '-f', String(seite), '-l', String(seite), '-x', String(x), '-y', String(y), '-W', String(w), '-H', String(h), '-singlefile', pdf, join(dir, 'k')]);
+    const bild = leseP6(readFileSync(join(dir, 'k.ppm')));
+    const lum = (i: number): number => luminanz(bild.data[i] ?? 0, bild.data[i + 1] ?? 0, bild.data[i + 2] ?? 0);
+    const grund = lum(0);
+    let tinte = 0;
+    for (let i = 0; i + 2 < bild.data.length; i += 3) if (Math.abs(lum(i) - grund) > 60) tinte++;
+    return { tinte, seite };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+/** Rahmenbreite links und rechts einer vollen Box (Callout „Info-Kastens“) in Pixelspalten bei 200 dpi: Spalten in der Nähe des linken beziehungsweise
+ *  rechten Satzspiegelrands, in denen 80 % der Zeilen der Box vom Grund abweichen. `rechts` kleiner als `links` heißt: Rahmenlinie abgeschnitten. */
+export function messeRahmen(pdf: string): { links: number; rechts: number } | null {
+  const seite = findeSeite(pdf, 'Info-Kastens');
+  if (seite === null) return null;
+  const worte = leseWorte(werkzeug('pdftotext', ['-bbox', '-f', String(seite), '-l', String(seite), pdf, '-']));
+  const titel = worte.find((w) => w.text.includes('Info-Kastens'));
+  const ende = worte.find((w) => w.text.includes('Betonung'));
+  if (!titel || !ende) return null;
+  const k = 200 / 72;
+  const dir = mkdtempSync(join(tmpdir(), 'paperize-rahmen-'));
+  try {
+    werkzeug('pdftoppm', ['-r', '200', '-f', String(seite), '-l', String(seite), '-singlefile', pdf, join(dir, 'r')]);
+    const bild = leseP6(readFileSync(join(dir, 'r.ppm')));
+    const y0 = Math.floor((titel.y0 + 2) * k);
+    const y1 = Math.floor((ende.y1 - 2) * k);
+    const lum = (x: number, y: number): number => { const i = (y * bild.w + x) * 3; return luminanz(bild.data[i] ?? 0, bild.data[i + 1] ?? 0, bild.data[i + 2] ?? 0); };
+    const spalten = (von: number, bis: number): number => {
+      let n = 0;
+      for (let x = von; x < bis; x++) {
+        const grund = lum(x - 6 < 0 ? 0 : x - 6, y0);
+        let treffer = 0;
+        for (let y = y0; y <= y1; y++) if (Math.abs(lum(x, y) - grund) > 40) treffer++;
+        if (treffer >= 0.8 * (y1 - y0 + 1)) n++;
+      }
+      return n;
+    };
+    const rand = Math.round(56.69 * k);
+    return { links: spalten(rand - 12, rand + 12), rechts: spalten(bild.w - rand - 12, bild.w - rand + 12) };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 /* ------------------------------------------------------------------ Punkte */
 
 const punktName = (arm: Arm, profil: Profil, m: string): string => `${arm.id}/${profil} ${m}`;
@@ -240,9 +318,15 @@ const M5 = 'M5 Kontrast';
 const M6 = 'M6 Tintendeckung';
 const M7 = 'M7 Seitenzahl „n/m“ auf Seite 2, abschaltbar';
 const M9 = 'M9 Befehle: jeder erzeugt sein Profil';
+const P1 = 'P1 Callout-Text sichtbar';
+const P2 = 'P2 Aufgaben-Kästchen offen und erledigt sichtbar';
+const P4 = 'P4 Rahmen der vollen Boxen rechts nicht abgeschnitten';
+const P3 = 'P3 Mermaid-Knoten hell, Text lesbar';
 const M11 = 'M11 verdecktes Fenster: Export läuft oder der Rückfall ist dokumentiert';
 const KONTRAST_PAPIER = 7;
 const KONTRAST_CODE = 4.5;
+const KONTRAST_CALLOUT = 4.5;
+const KNOTEN_HELL_MIN = 150;
 const WEG = 'Weg: Desktop-Druck ohne Rückfall';
 const M2 = 'M2 Ein-Wort-Notiz über der Schwelle, kein Rückfall';
 const FEHLER = 'Mermaid-Fehler: PDF mit Fehlerkasten, kein Rückfall';
@@ -254,7 +338,7 @@ function sollListe(arme: Arm[], gegenprobe: boolean): string[] {
   for (const a of arme) {
     out.push(`${a.id} Aufbau: Thema und Modus stehen`);
     for (const p of PROFILE) {
-      out.push(punktName(a, p, WEG), punktName(a, p, M1), punktName(a, p, M3), punktName(a, p, M4), punktName(a, p, M5));
+      out.push(punktName(a, p, WEG), punktName(a, p, M1), punktName(a, p, M3), punktName(a, p, M4), punktName(a, p, M5), punktName(a, p, P1), punktName(a, p, P2), punktName(a, p, P3), punktName(a, p, P4));
       if (p === 'paper') out.push(punktName(a, p, M6));
     }
   }
@@ -433,13 +517,33 @@ async function fahreArm(arm: Arm, port: number, vaultDir: string, outDir: string
           if (profil === 'paper') record(punktName(arm, profil, M5), !!code && !!text && Math.min(code.ratio, text.ratio) >= KONTRAST_PAPIER, `${detail} (Grenze ${KONTRAST_PAPIER}:1)`);
           else record(punktName(arm, profil, M5), !!code && code.ratio >= KONTRAST_CODE, `${detail} (Grenze Inline-Code ${KONTRAST_CODE}:1)`);
         }
+        {
+          // P1 bis P3: die Stellen, an denen das Profil Papier gescheitert wäre, ohne dass M1/M4/M5 es sahen (Textlayer, Eckpixel, Fließtext).
+          const c = messeKontrastIrgendwo(ziel, 'Info-Kastens');
+          record(punktName(arm, profil, P1), !!c && c.ratio >= KONTRAST_CALLOUT,
+            c ? `Callout-Text ${c.ratio.toFixed(1)}:1 (Text rgb(${c.fg.join(', ')}) auf rgb(${c.bg.join(', ')}), Seite ${c.seite}; Grenze ${KONTRAST_CALLOUT}:1)` : 'Wort „Info-Kastens“ nicht gefunden');
+          const offen = messeKaestchen(ziel, 'offene');
+          const fertig = messeKaestchen(ziel, 'erledigte');
+          record(punktName(arm, profil, P2), !!offen && !!fertig && (profil === 'screen' || offen.tinte > 0) && fertig.tinte > offen.tinte,
+            offen && fertig ? `Tinte neben dem Wort: offen ${offen.tinte} Pixel, erledigt ${fertig.tinte} Pixel (erledigt muss mehr tragen als offen; Papier: der offene Rahmen muss selbst sichtbar sein)` : 'Aufgabenzeile nicht gefunden');
+          const n = messeKontrastIrgendwo(ziel, 'MARK-KNOTEN');
+          const lumBg = n ? luminanz(n.bg[0] ?? 0, n.bg[1] ?? 0, n.bg[2] ?? 0) : 0;
+          record(punktName(arm, profil, P3), !!n && n.ratio >= KONTRAST_CALLOUT && (profil === 'screen' || lumBg >= KNOTEN_HELL_MIN),
+            n ? `Knotentext ${n.ratio.toFixed(1)}:1 (Text rgb(${n.fg.join(', ')}) auf Füllung rgb(${n.bg.join(', ')}), Füllung Luminanz ${lumBg.toFixed(0)}${profil === 'paper' ? `, Grenze ${KNOTEN_HELL_MIN}` : ''})` : 'Wort „MARK-KNOTEN“ nicht gefunden');
+        }
+        {
+          const r = messeRahmen(ziel);
+          if (r && r.links === 0) skipped(punktName(arm, profil, P4), 'die Box hat in diesem Thema keine Rahmenlinie am Rand, nur eine Fläche: nichts zu messen');
+          else record(punktName(arm, profil, P4), !!r && r.rechts >= r.links,
+            r ? `Rahmenspalten (200 dpi) am Rand der Info-Box: links ${r.links}, rechts ${r.rechts}` : 'Info-Box nicht gefunden');
+        }
         if (profil === 'paper') {
           record(punktName(arm, profil, M6), befund.tinte !== null && befund.tinte <= INK_MAX_PAPER, `Tintendeckung ${befund.tinte === null ? '?' : (befund.tinte * 100).toFixed(1)} % (Grenze ${INK_MAX_PAPER * 100} %)`);
         } else {
           console.log(`  Bildschirm: Tintendeckung ${befund.tinte === null ? '?' : (befund.tinte * 100).toFixed(1)} % (nur zur Kenntnis)`);
         }
       } catch (e) {
-        for (const m of [WEG, M1, M3, M4, M5, ...(profil === 'paper' ? [M6] : [])]) unmeasured(punktName(arm, profil, m), (e as Error).message);
+        for (const m of [WEG, M1, M3, M4, M5, P1, P2, P3, P4, ...(profil === 'paper' ? [M6] : [])]) unmeasured(punktName(arm, profil, m), (e as Error).message);
       }
     }
 
@@ -536,7 +640,7 @@ async function fahreArm(arm: Arm, port: number, vaultDir: string, outDir: string
 
 function kalibriere(pdf: string): void {
   const b = werteAus(pdf);
-  console.log(JSON.stringify({ ...b, text: undefined, markerFehlen: fehlendeMarker(b.text), textZeichen: b.text.length, kontrastCode: messeKontrast(pdf, 'Inline-Code'), kontrastText: messeKontrast(pdf, 'Füllstoff') }, null, 2));
+  console.log(JSON.stringify({ ...b, text: undefined, markerFehlen: fehlendeMarker(b.text), textZeichen: b.text.length, kontrastCode: messeKontrast(pdf, 'Inline-Code'), kontrastText: messeKontrast(pdf, 'Füllstoff'), callout: messeKontrastIrgendwo(pdf, 'Info-Kastens'), offen: messeKaestchen(pdf, 'offene'), erledigt: messeKaestchen(pdf, 'erledigte'), knoten: messeKontrastIrgendwo(pdf, 'MARK-KNOTEN'), rahmen: messeRahmen(pdf) }, null, 2));
 }
 
 async function main(): Promise<void> {

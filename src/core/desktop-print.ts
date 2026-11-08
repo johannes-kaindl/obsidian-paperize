@@ -54,6 +54,10 @@ export function renderWidthPx(s: DesktopPageSettings): number {
   return Math.round((PAGE_WIDTH_MM[s.pageSize] - 2 * s.marginMm) / 25.4 * 96);
 }
 
+/** Eine volle Box (Callout, Code-Block) endet auf der Kante des Satzspiegels; Chromium schneidet dort die Hälfte der rechten Rahmenlinie ab
+ *  (gemessen 2026-11-08: links zwei Pixelspalten bei 200 dpi, rechts eine). Zwei CSS-Pixel Luft rechts halten den Rahmen im Satzspiegel. */
+export const EDGE_GUARD_CSS = '.okit-print-page { padding-right: 2px; box-sizing: border-box; }';
+
 export function paginationCss(s: DesktopPageSettings): string {
   const rules: string[] = [];
   if (s.keepTablesTogether) rules.push('table { break-inside: avoid; }');
@@ -86,7 +90,7 @@ export function desktopExtraCss(
     numberColor,
     footer: s.footer ?? undefined,
   });
-  const parts = [obsidianPrintResetCss()];
+  const parts = [obsidianPrintResetCss(), EDGE_GUARD_CSS];
   if (paper) parts.push(paperProfileCss());
   else if (background !== undefined) parts.push(`html, body { background: ${background}; }`);
   parts.push(paginationCss(s), page);
