@@ -15,6 +15,9 @@ import { pickLang, setLang, t } from '../vendor/kit/i18n';
 import { registerI18n } from '../i18n/strings';
 import { localParts } from '../vendor/kit/local-stamp';
 import { ExportCancelled, startExportProgress } from './export-progress';
+import { renderDesktopPdf } from './export-desktop';
+import type { DesktopProfile } from '../core/desktop-print';
+import { PrintToPdfError, isDesktopPrintAvailable, printHtmlToPdf } from '../vendor/kit-obsidian/print-to-pdf';
 
 const IMAGE_TIMEOUT_MS = 15000;
 const RENDER_TIMEOUT_MS = 10000;
@@ -43,6 +46,8 @@ export default class PaperizePlugin extends Plugin {
   settings: PaperizeSettings = mergeSettings(DEFAULT_SETTINGS, null);
   // Ein Export zur Zeit: ein zweiter Klick auf den Ribbon-Knopf startete sonst einen parallelen Lauf.
   private exporting = false;
+  // Öffentliche Naht für Treiber: null heißt „kein Desktop-Weg, keine Notice“ (Vektor-Weg pur).
+  desktopPrint: typeof printHtmlToPdf | null = printHtmlToPdf;
 
   async onload() {
     // Language must be resolved before any user-facing string is registered below.
@@ -61,14 +66,14 @@ export default class PaperizePlugin extends Plugin {
   }
   async saveSettings() { await this.saveData(this.settings); }
 
-  private async exportActive(): Promise<void> {
+  async exportActive(profile: DesktopProfile = 'paper'): Promise<void> {
     const file = this.app.workspace.getActiveFile();
     if (!file || file.extension !== 'md') { new Notice(t('notice.noActiveNote')); return; }
     if (this.exporting) { new Notice(t('notice.exportBusy')); return; }
     this.exporting = true;
     const progress = startExportProgress();
     try {
-      await this.exportFile(file, () => progress.checkpoint());
+      await this.exportFile(file, profile, () => progress.checkpoint());
     } catch (e) {
       if (e instanceof ExportCancelled) { new Notice(t('notice.exportCancelled')); return; }
       console.error('Paperize: export failed', e);
@@ -79,7 +84,7 @@ export default class PaperizePlugin extends Plugin {
     }
   }
 
-  private async exportFile(file: TFile, checkpoint: () => void): Promise<void> {
+  private async exportFile(file: TFile, profile: DesktopProfile, checkpoint: () => void): Promise<void> {
     const raw = await this.app.vault.read(file);
     // Always strip the raw YAML from the body (it would render as an ugly code block);
     // the frontmatter is re-surfaced as a clean metadata block below when enabled.
@@ -87,6 +92,63 @@ export default class PaperizePlugin extends Plugin {
     if (!body.trim()) { new Notice(t('notice.nothingToExport')); return; }
     const title = deriveTitle(body, file.basename);
 
+    const { date: dateStr, time: timeStr } = nowParts();
+
+    let bytes: Uint8Array | null = null;
+    let totalUnsupported = 0;
+    if (this.desktopPrint && isDesktopPrintAvailable()) {
+      try {
+        bytes = await renderDesktopPdf({
+          app: this.app, file, body, title, profile, settings: this.settings, dateStr, checkpoint, print: this.desktopPrint,
+        });
+      } catch (e) {
+        if (e instanceof ExportCancelled || (e instanceof PrintToPdfError && e.kind === 'aborted')) throw e;
+        console.warn('Paperize: desktop print path failed, using the plain style', e);
+        new Notice(t('notice.desktopFallback'));
+      }
+    }
+    if (!bytes) {
+      const vector = await this.renderVector(file, body, title, dateStr, checkpoint);
+      bytes = vector.bytes;
+      totalUnsupported = vector.unsupported;
+    }
+
+    const noteDir = file.parent ? file.parent.path : '';
+    const vars = {
+      title: file.basename,
+      date: dateStr,
+      time: timeStr,
+      folder: file.parent ? file.parent.name : '',
+    };
+    // Der Anhang-Pfad braucht den fertigen Dateinamen. {version} ist in diesem Modus
+    // wirkungslos (Obsidian löst Kollisionen selbst auf) — daher version: 1, kein Zirkel.
+    const attachmentPath = this.settings.outputMode === 'attachmentFolder'
+      ? await this.attachmentPathFor(file, buildFilename(this.settings.filenameTemplate, { ...vars, version: 1 }, t('file.fallbackName')))
+      : '';
+    const { path, baseName } = await resolveVersionedOutputPath(
+      this.app,
+      this.settings.outputMode,
+      this.settings.filenameTemplate,
+      vars,
+      { noteDir: noteDir === '/' ? '' : noteDir, customFolder: this.settings.customFolder, attachmentPath },
+    );
+    checkpoint();
+    // Standard-Schema {title}: der Name ändert sich nie, ein zweiter Export ersetzt die Datei — erst fragen.
+    if (mayOverwrite(this.settings.outputMode, this.settings.filenameTemplate, path)
+      && !(await confirmReplace(this.app, path))) throw new ExportCancelled();
+    await writePdf(this.app, bytes, this.settings.outputMode, {
+      baseName,
+      resolvedPath: path,
+      openAfter: this.settings.openAfter,
+    });
+
+    if (totalUnsupported > 0) new Notice(t('notice.simplified', totalUnsupported));
+  }
+
+  // Der Vektor-Weg (Core-14-Engine): iPhone, iPad und Rückfall am Desktop. Verhalten unverändert.
+  private async renderVector(
+    file: TFile, body: string, title: string, dateStr: string, checkpoint: () => void,
+  ): Promise<{ bytes: Uint8Array; unsupported: number }> {
     // Render markdown → detached DOM via Obsidian's own parser.
     const holder = createDiv();
     const comp = new Component();
@@ -127,7 +189,6 @@ export default class PaperizePlugin extends Plugin {
 
     checkpoint();
     const totalUnsupported = unsupportedCount + resolved.unsupportedAdded;
-    const { date: dateStr, time: timeStr } = nowParts();
     // Traegt die Notiz ihren Titel schon als eigene H1, wird er oben NICHT noch einmal
     // gedruckt — sonst steht er zweimal auf Seite eins.
     const options = settingsToOptions(this.settings, title, dateStr, leadingH1(body) !== null);
@@ -139,38 +200,7 @@ export default class PaperizePlugin extends Plugin {
       const entries = buildMetadataEntries(fm);
       if (entries.length) blocks.unshift({ type: 'metadata', entries });
     }
-    const bytes = renderPdf(blocks, options);
-
-    const noteDir = file.parent ? file.parent.path : '';
-    const vars = {
-      title: file.basename,
-      date: dateStr,
-      time: timeStr,
-      folder: file.parent ? file.parent.name : '',
-    };
-    // Der Anhang-Pfad braucht den fertigen Dateinamen. {version} ist in diesem Modus
-    // wirkungslos (Obsidian löst Kollisionen selbst auf) — daher version: 1, kein Zirkel.
-    const attachmentPath = this.settings.outputMode === 'attachmentFolder'
-      ? await this.attachmentPathFor(file, buildFilename(this.settings.filenameTemplate, { ...vars, version: 1 }, t('file.fallbackName')))
-      : '';
-    const { path, baseName } = await resolveVersionedOutputPath(
-      this.app,
-      this.settings.outputMode,
-      this.settings.filenameTemplate,
-      vars,
-      { noteDir: noteDir === '/' ? '' : noteDir, customFolder: this.settings.customFolder, attachmentPath },
-    );
-    checkpoint();
-    // Standard-Schema {title}: der Name ändert sich nie, ein zweiter Export ersetzt die Datei — erst fragen.
-    if (mayOverwrite(this.settings.outputMode, this.settings.filenameTemplate, path)
-      && !(await confirmReplace(this.app, path))) throw new ExportCancelled();
-    await writePdf(this.app, bytes, this.settings.outputMode, {
-      baseName,
-      resolvedPath: path,
-      openAfter: this.settings.openAfter,
-    });
-
-    if (totalUnsupported > 0) new Notice(t('notice.simplified', totalUnsupported));
+    return { bytes: renderPdf(blocks, options), unsupported: totalUnsupported };
   }
 
   // Resolve the destination path Obsidian would use for an attachment named <baseName>.pdf.

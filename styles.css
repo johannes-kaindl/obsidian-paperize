@@ -27,3 +27,8 @@
    Das Kit exportiert das CSS als String, der Consumer kopiert; wer print-to-pdf.ts
    re-vendored, zieht diesen Block von Hand mit. Kein Selektor "webview" (Store-Lint). */
 .okit-print-host { position: fixed; left: -10000px; top: 0; width: 794px; height: 1123px; }
+
+/* Desktop-Druckweg (Paperize): unsichtbarer Render-Container von der Breite des Satzspiegels
+   und ein Probe-Element, aus dem die ausgeschriebenen Seitenfarben gelesen werden. */
+.paperize-render-host { position: fixed; left: -10000px; top: 0; width: var(--paperize-render-width); }
+.paperize-color-probe { background-color: var(--background-primary); color: var(--text-muted); }
