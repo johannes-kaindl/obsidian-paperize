@@ -74,6 +74,7 @@ const PUNKTE = [
   'A1 Plugin geladen',
   'A2 Export-Befehl registriert',
   'A3 Ribbon-Knopf vorhanden',
+  'A4 Drei Export-Befehle am Desktop: Einstellung, wie in Obsidian, Papier',
   'B1 PDF entsteht neben der Notiz',
   'B2 Datei ist ein PDF',
   'B3 Notice nennt den gespeicherten Pfad',
@@ -111,6 +112,8 @@ const PUNKTE = [
   'H1 Teilen: Fremddatei im Export-Ordner löst die Rückfrage aus, „Keep them“ lässt sie liegen',
   'H2 Teilen: „Delete them“ löscht die Fremddatei, eigene Reste verschwinden in beiden Fällen',
   'H3 Teilen: ohne Fremddatei keine Rückfrage, die Datei geht an die Standard-App (Stub)',
+  'I1 Rückfall: wirft der Druck, entsteht das PDF im einfachen Stil und die Notice sagt es',
+  'I2 Abbruch: kein Rückfall, keine Datei, weder Druck-Host noch Render-Container noch Webview im DOM',
 ] as const;
 
 const bilanz = createBilanz({ punkte: PUNKTE });
@@ -297,6 +300,18 @@ async function pruefeGrundlage(cdp: Cdp, v: VaultInfo, hinweis: string): Promise
     return kandidaten.some((el) => (el.getAttribute("aria-label") || "") === "Export active note as PDF");
   `);
   record('A3 Ribbon-Knopf vorhanden', ribbon, ribbon ? 'aria-label = Command-Name „Export active note as PDF“' : 'kein Ribbon-Knopf mit dem Command-Namen als Tooltip');
+
+  // Spec § 5: am Desktop drei Befehle. Die Namen kommen aus der Obsidian-Befehlsliste, nicht aus dem Quelltext.
+  const ids = ['export-pdf', 'export-pdf-screen', 'export-pdf-paper'];
+  const namen = await cdp.evaluate<(string | null)[]>(`
+    return ${JSON.stringify(ids)}.map((id) => { const c = app.commands.commands[${JSON.stringify(PLUGIN_ID + ':')} + id]; return c ? c.name : null; });
+  `);
+  const erwartet = ['Export active note as PDF', 'Export active note as PDF (as in Obsidian)', 'Export active note as PDF (paper)'];
+  record(
+    'A4 Drei Export-Befehle am Desktop: Einstellung, wie in Obsidian, Papier',
+    namen.every((n, i) => n !== null && n.endsWith(erwartet[i] ?? '#')),
+    ids.map((id, i) => `${id}: ${namen[i] ?? 'FEHLT'}`).join(' · '),
+  );
 }
 
 async function pruefeGrundfall(cdp: Cdp, vaultDir: string): Promise<void> {
@@ -840,6 +855,70 @@ function setupVault(): void {
   console.log(`  open "obsidian://open?path=${encodeURIComponent(join(vaultDir, 'Smoke.md'))}"`);
 }
 
+/* ------------------------------------------------------ Desktop-Weg: Rückfall, Abbruch */
+
+/** Ersetzt die Druck-Naht des Plugins im Renderer; `orig` ist darin der echte `printHtmlToPdf` (nur nach `ladePluginFrisch`). */
+async function setzeDruck(cdp: Cdp, quelltext: string, orig = false): Promise<void> {
+  await cdp.evaluate(`
+    const p = app.plugins.plugins[${JSON.stringify(PLUGIN_ID)}];
+    const orig = ${orig ? 'p.desktopPrint' : 'null'};
+    p.desktopPrint = ${quelltext};
+    return true;
+  `);
+}
+
+/** Plugin aus- und einschalten: die frische Instanz trägt wieder den echten Druck (der Treiber hat ihn mit `null` abgeschaltet). */
+async function ladePluginFrisch(cdp: Cdp): Promise<boolean> {
+  return cdp.evaluate<boolean>(`
+    await app.plugins.disablePlugin(${JSON.stringify(PLUGIN_ID)});
+    await app.plugins.enablePlugin(${JSON.stringify(PLUGIN_ID)});
+    const p = app.plugins.plugins[${JSON.stringify(PLUGIN_ID)}];
+    return Boolean(p) && typeof p.desktopPrint === 'function';
+  `);
+}
+
+const DRUCK_HOSTS = '.okit-print-host, .paperize-render-host, webview';
+
+async function pruefeDesktopWeg(cdp: Cdp, vaultDir: string): Promise<void> {
+  console.log('\nI · Desktop-Weg: Rückfall und Abbruch (Druck-Naht im Renderer ersetzt)');
+  await setSettings(cdp, { outputMode: 'nextToNote', filenameTemplate: '{title}' });
+  const ziel = join(vaultDir, 'Smoke.pdf');
+
+  // I1 — der Druck wirft: das PDF entsteht über den Vektor-Weg, die Notice benennt den Rückfall.
+  try {
+    rmSync(ziel, { force: true });
+    await setzeDruck(cdp, `async () => { throw new Error('Druck blockiert (Smoke I1)'); }`);
+    const notice = await exportNote(cdp, 'Smoke.md');
+    const da = await warteAufDatei(ziel);
+    const bytes = da ? readFileSync(ziel) : Buffer.alloc(0);
+    const vektor = da && pdfText(bytes).includes('MARKH1');
+    const fallback = /plain style/i.test(notice);
+    record(
+      'I1 Rückfall: wirft der Druck, entsteht das PDF im einfachen Stil und die Notice sagt es',
+      da && vektor && fallback,
+      `Datei ${da ? `${bytes.length} Bytes, Vektor-Marker MARKH1 ${vektor ? 'da' : 'FEHLT'}` : 'fehlt'} · Notice: ${notice || '(keine)'}`,
+    );
+  } catch (e) { unmeasured('I1 Rückfall: wirft der Druck, entsteht das PDF im einfachen Stil und die Notice sagt es', (e as Error).message); }
+
+  // I2 — der Nutzer bricht ab, während der echte Druck läuft: weder Rückfall noch Datei, nichts bleibt im DOM zurück.
+  try {
+    rmSync(ziel, { force: true });
+    if (!(await ladePluginFrisch(cdp))) throw new Error('Plugin ließ sich nicht frisch laden: kein echter Druck');
+    await setzeDruck(cdp, `async (d, h, o) => { const b = document.querySelector('.notice button'); if (b) b.click(); return await orig(d, h, o); }`, true);
+    const notice = await exportNote(cdp, 'Smoke.md');
+    await new Promise((r) => setTimeout(r, 1500));
+    const rest = await cdp.evaluate<number>(`return document.querySelectorAll(${JSON.stringify(DRUCK_HOSTS)}).length;`);
+    const datei = existsSync(ziel);
+    const abgebrochen = /cancel/i.test(notice) && !/plain style/i.test(notice);
+    record(
+      'I2 Abbruch: kein Rückfall, keine Datei, weder Druck-Host noch Render-Container noch Webview im DOM',
+      abgebrochen && !datei && rest === 0,
+      `Notice: ${notice || '(keine)'} · Datei ${datei ? 'DA' : 'keine'} · Reste im DOM: ${rest}`,
+    );
+  } catch (e) { unmeasured('I2 Abbruch: kein Rückfall, keine Datei, weder Druck-Host noch Render-Container noch Webview im DOM', (e as Error).message); }
+  finally { await setzeDruck(cdp, 'null').catch(() => undefined); rmSync(ziel, { force: true }); }
+}
+
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   if (args.has('setup')) {
@@ -895,6 +974,14 @@ async function main(): Promise<void> {
     // eigenen Staging-Vault. Muss VOR dem Lesen der Einstellungen laufen (sie liegen im Plugin).
     const klar = await bereiteInstanzVor(cdp, { pluginIds: [PLUGIN_ID], nurVault: REPO_NAME, sprache: 'en' });
 
+    // Der Treiber misst den Vektor-Weg (Core-14-Engine, `(…) Tj` im Klartext); Chromium-PDFs sind komprimiert und
+    // gehören der Druck-Matrix (`npm run smoke:print`). Abschnitt I lädt das Plugin neu, um den echten Druck wiederzuhaben.
+    await cdp.evaluate(`
+      const p = app.plugins.plugins[${JSON.stringify(PLUGIN_ID)}];
+      p.desktopPrint = null;
+      return true;
+    `);
+
     vorher = await readSettings(cdp);
     // A0 — ein per Ctrl-C abgebrochener Vorlauf haette `vorher` NIE zurueckgeschrieben; der
     // hier gelesene Wert waere dann bereits ein Test-Patch statt des echten Ausgangszustands
@@ -923,6 +1010,7 @@ async function main(): Promise<void> {
     await pruefeBilder(cdp, vaultDir);
     await pruefeSettings(cdp);
     await pruefeTeilen(cdp, vaultDir);
+    await pruefeDesktopWeg(cdp, vaultDir);
   } finally {
     // Nach Ctrl-C räumt das Abbruch-Modul auf, druckt die Bilanz und beendet den Prozess; dieser Zweig darf dann weder ein
     // zweites Mal aufräumen noch die Bilanz ein zweites Mal drucken.
