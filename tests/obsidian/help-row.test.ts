@@ -4,7 +4,7 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 const order: string[] = [];
 vi.mock('obsidian', () => ({
   PluginSettingTab: class { containerEl = { empty: () => {} }; constructor(public app: unknown, public plugin: unknown) {} },
-  Setting: class {}, App: class {}, Plugin: class {}, AbstractInputSuggest: class {},
+  Setting: class {}, App: class {}, Plugin: class {}, AbstractInputSuggest: class {}, Platform: { isDesktopApp: true },
 }));
 vi.mock('../../src/vendor/kit-obsidian/settings_walker', () => ({
   renderSettingDefinitions: (_el: unknown, items: { name?: string }[]) => { order.push(`walker:${items[0]?.name ?? ''}`); return () => {}; },

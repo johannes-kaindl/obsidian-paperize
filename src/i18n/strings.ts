@@ -8,6 +8,14 @@ import { defineStrings } from "../vendor/kit/i18n";
 export const EN: Record<string, string> = {
   // commands / ribbon
   "cmd.export": "Export active note as PDF",
+  "cmd.exportScreen": "Export active note as PDF (as in Obsidian)",
+  "cmd.exportPaper": "Export active note as PDF (paper)",
+  "notice.oldShell": "Page numbers and footers need a newer Obsidian installation.",
+  "settings.desktopProfile.name": "Look on desktop",
+  "settings.desktopProfile.desc": "Paper saves ink and is independent of the theme's colours. As in Obsidian keeps the theme, including a dark background.",
+  "settings.desktopProfile.paper": "Paper (saves ink)",
+  "settings.desktopProfile.screen": "As in Obsidian",
+  "settings.vectorOnly.hint": "Applies on iPhone and iPad and to the plain style.",
 
   // notices
   "notice.noActiveNote": "No active Markdown note.",
@@ -92,6 +100,14 @@ export const EN: Record<string, string> = {
 export const DE: Record<string, string> = {
   // commands / ribbon
   "cmd.export": "Aktive Notiz als PDF exportieren",
+  "cmd.exportScreen": "Aktive Notiz als PDF exportieren (wie in Obsidian)",
+  "cmd.exportPaper": "Aktive Notiz als PDF exportieren (Papier)",
+  "notice.oldShell": "Seitenzahlen und Fußzeile brauchen eine neuere Obsidian-Installation.",
+  "settings.desktopProfile.name": "Aussehen am Desktop",
+  "settings.desktopProfile.desc": "Papier spart Tinte und hängt nicht von den Farben des Themes ab. Wie in Obsidian übernimmt das Theme, auch einen dunklen Hintergrund.",
+  "settings.desktopProfile.paper": "Papier (spart Tinte)",
+  "settings.desktopProfile.screen": "Wie in Obsidian",
+  "settings.vectorOnly.hint": "Gilt am iPhone und iPad sowie im einfachen Stil.",
 
   // notices
   "notice.noActiveNote": "Keine aktive Markdown-Notiz.",

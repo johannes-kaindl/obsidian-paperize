@@ -1,7 +1,7 @@
 // tests/core/desktop-print.test.ts
 import { describe, it, expect } from 'vitest';
 import {
-  profileBodyClass, printBackgroundFor, renderWidthPx, paginationCss, desktopExtraCss,
+  profileBodyClass, printBackgroundFor, renderWidthPx, paginationCss, desktopExtraCss, exportCommands,
 } from '../../src/core/desktop-print';
 import type { DesktopPageSettings } from '../../src/core/desktop-print';
 import { obsidianPrintResetCss } from '../../src/vendor/kit/print-css';
@@ -90,5 +90,18 @@ describe('desktopExtraCss', () => {
     for (const p of ['paper', 'screen'] as const) {
       expect(desktopExtraCss(p, S, { background: null, muted: null }, true)).toContain(obsidianPrintResetCss());
     }
+  });
+});
+
+describe('exportCommands', () => {
+  it('lists three commands on desktop', () => {
+    expect(exportCommands(true)).toEqual([
+      { id: 'export-pdf', nameKey: 'cmd.export', profile: null },
+      { id: 'export-pdf-screen', nameKey: 'cmd.exportScreen', profile: 'screen' },
+      { id: 'export-pdf-paper', nameKey: 'cmd.exportPaper', profile: 'paper' },
+    ]);
+  });
+  it('lists one command elsewhere', () => {
+    expect(exportCommands(false).map((c) => c.id)).toEqual(['export-pdf']);
   });
 });

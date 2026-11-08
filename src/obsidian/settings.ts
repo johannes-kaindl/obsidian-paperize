@@ -1,5 +1,5 @@
 // src/obsidian/settings.ts
-import { App, Plugin, PluginSettingTab } from 'obsidian';
+import { App, Platform, Plugin, PluginSettingTab } from 'obsidian';
 import type { SettingControl, SettingDefinitionGroup, SettingDefinitionItem, SettingGroupItem } from 'obsidian';
 import { DEFAULT_OPTIONS } from '../vendor/kit/pdf';
 import type { LayoutOptions, FontChoice } from '../vendor/kit/pdf';
@@ -9,10 +9,13 @@ import { collapsibleSection } from '../vendor/kit-obsidian/collapsible';
 import type { CollapsibleStorage } from '../vendor/kit-obsidian/collapsible';
 import { renderSettingDefinitions, refreshSettingsTab } from '../vendor/kit-obsidian/settings_walker';
 import { helpDefinition } from './help-row';
+import type { DesktopProfile } from '../core/desktop-print';
 
 export type OutputMode = 'nextToNote' | 'attachmentFolder' | 'customFolder' | 'share';
 
 export interface PaperizeSettings {
+  /** Aussehen des Desktop-PDFs: Papier (Tinte sparend) oder wie in Obsidian. Am iPhone ohne Wirkung. */
+  desktopProfile: DesktopProfile;
   fontChoice: FontChoice;
   baseSizePt: number;
   lineHeight: number;
@@ -40,6 +43,7 @@ export interface PaperizeSettings {
 }
 
 export const DEFAULT_SETTINGS: PaperizeSettings = {
+  desktopProfile: 'paper',
   fontChoice: 'sans',
   baseSizePt: 10.5,
   lineHeight: 1.45,
@@ -214,8 +218,20 @@ export class PaperizeSettingTab extends PluginSettingTab {
       // dauerhaft im Namen — und der deklarative Pfad hat gar keinen Tooltip.
       displayFormat: (v: number) => `${v}${unit}` } as unknown as SettingControl);
 
+    // Der Hinweis „gilt nur im Vektor-Weg“ ist nur am Desktop sinnvoll; dort wirken die Zeilen nicht.
+    const vectorHint = Platform.isDesktopApp ? t('settings.vectorOnly.hint') : '';
+    const withHint = (desc?: string): string | undefined => [desc, vectorHint].filter(Boolean).join(' ') || undefined;
+
     return [
       group('output', [
+        // Nur am Desktop: weggelassen statt ausgeblendet (siehe unten, 1.13.7 wertet `visible` nicht aus).
+        ...(Platform.isDesktopApp
+          ? [{ name: t('settings.desktopProfile.name'), desc: t('settings.desktopProfile.desc'),
+              control: { type: 'dropdown', key: 'desktopProfile', options: {
+                paper: t('settings.desktopProfile.paper'),
+                screen: t('settings.desktopProfile.screen'),
+              } } }]
+          : []),
         { name: t('settings.output.name'), control: { type: 'dropdown', key: 'outputMode', options: {
           nextToNote: t('settings.output.nextToNote'),
           attachmentFolder: t('settings.output.attachmentFolder'),
@@ -246,11 +262,11 @@ export class PaperizeSettingTab extends PluginSettingTab {
       ] as unknown as SettingGroupItem[]),
 
       group('type', [
-        { name: t('settings.font.name'), desc: t('settings.font.desc'), control: { type: 'dropdown', key: 'fontChoice', options: {
+        { name: t('settings.font.name'), desc: withHint(t('settings.font.desc')), control: { type: 'dropdown', key: 'fontChoice', options: {
           sans: 'Sans (Helvetica)', serif: 'Serif (Times)', mono: 'Mono (Courier)',
         } } },
-        { name: t('settings.fontSize.name'), control: slider('baseSizePt', 6, 24, 0.5, ' pt') },
-        { name: t('settings.lineHeight.name'), desc: t('settings.lineHeight.desc'), control: slider('lineHeight', 1.0, 2.0, 0.05) },
+        { name: t('settings.fontSize.name'), desc: withHint(), control: slider('baseSizePt', 6, 24, 0.5, ' pt') },
+        { name: t('settings.lineHeight.name'), desc: withHint(t('settings.lineHeight.desc')), control: slider('lineHeight', 1.0, 2.0, 0.05) },
         { name: t('settings.imageWidth.name'), desc: t('settings.imageWidth.desc'), control: slider('imageMaxWidthPct', 25, 100, 5, ' %') },
       ] as unknown as SettingGroupItem[]),
 

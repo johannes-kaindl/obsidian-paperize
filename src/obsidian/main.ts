@@ -1,5 +1,5 @@
 // src/obsidian/main.ts
-import { Plugin, Notice, MarkdownRenderer, Component, TFile, normalizePath, getLanguage, requestUrl } from 'obsidian';
+import { Plugin, Notice, Platform, MarkdownRenderer, Component, TFile, normalizePath, getLanguage, requestUrl } from 'obsidian';
 import { DEFAULT_SETTINGS, PaperizeSettings, PaperizeSettingTab, settingsToOptions } from './settings';
 import { writePdf, resolveVersionedOutputPath, mayOverwrite, confirmReplace } from './output';
 import { buildFilename } from '../core/filename';
@@ -16,7 +16,9 @@ import { registerI18n } from '../i18n/strings';
 import { localParts } from '../vendor/kit/local-stamp';
 import { ExportCancelled, startExportProgress } from './export-progress';
 import { renderDesktopPdf } from './export-desktop';
+import { exportCommands } from '../core/desktop-print';
 import type { DesktopProfile } from '../core/desktop-print';
+import { supportsPageMarginBoxes } from '../vendor/kit/print-document';
 import { PrintToPdfError, isDesktopPrintAvailable, printHtmlToPdf } from '../vendor/kit-obsidian/print-to-pdf';
 
 const IMAGE_TIMEOUT_MS = 15000;
@@ -46,6 +48,8 @@ export default class PaperizePlugin extends Plugin {
   settings: PaperizeSettings = mergeSettings(DEFAULT_SETTINGS, null);
   // Ein Export zur Zeit: ein zweiter Klick auf den Ribbon-Knopf startete sonst einen parallelen Lauf.
   private exporting = false;
+  // Die Notice zur älteren Shell kommt einmal je Sitzung, nicht bei jedem Export.
+  private oldShellNoticed = false;
   // Öffentliche Naht für Treiber: null heißt „kein Desktop-Weg, keine Notice“ (Vektor-Weg pur).
   desktopPrint: typeof printHtmlToPdf | null = printHtmlToPdf;
 
@@ -55,7 +59,9 @@ export default class PaperizePlugin extends Plugin {
     setLang(pickLang(readObsidianLocale()));
     await this.loadSettings();
     this.addRibbonIcon('file-down', t('cmd.export'), () => this.exportActive());
-    this.addCommand({ id: 'export-pdf', name: t('cmd.export'), callback: () => this.exportActive() });
+    for (const c of exportCommands(Platform.isDesktopApp)) {
+      this.addCommand({ id: c.id, name: t(c.nameKey), callback: () => this.exportActive(c.profile ?? undefined) });
+    }
     this.addSettingTab(new PaperizeSettingTab(this.app, this));
   }
 
@@ -66,7 +72,8 @@ export default class PaperizePlugin extends Plugin {
   }
   async saveSettings() { await this.saveData(this.settings); }
 
-  async exportActive(profile: DesktopProfile = 'paper'): Promise<void> {
+  // Ohne Angabe gilt die Einstellung: so folgen Ribbon und `export-pdf` dem gewählten Profil.
+  async exportActive(profile: DesktopProfile = this.settings.desktopProfile): Promise<void> {
     const file = this.app.workspace.getActiveFile();
     if (!file || file.extension !== 'md') { new Notice(t('notice.noActiveNote')); return; }
     if (this.exporting) { new Notice(t('notice.exportBusy')); return; }
@@ -97,6 +104,7 @@ export default class PaperizePlugin extends Plugin {
     let bytes: Uint8Array | null = null;
     let totalUnsupported = 0;
     if (this.desktopPrint && isDesktopPrintAvailable()) {
+      this.noticeOldShell();
       try {
         bytes = await renderDesktopPdf({
           app: this.app, file, body, title, profile, settings: this.settings, dateStr, checkpoint, print: this.desktopPrint,
@@ -143,6 +151,15 @@ export default class PaperizePlugin extends Plugin {
     });
 
     if (totalUnsupported > 0) new Notice(t('notice.simplified', totalUnsupported));
+  }
+
+  // Chromium unter 131 kennt keine Seitenrand-Boxen: Seitenzahlen und Fußzeile fehlen dann (Spec § 5).
+  private noticeOldShell(): void {
+    if (this.oldShellNoticed) return;
+    if (supportsPageMarginBoxes(activeWindow.navigator.userAgent)) return;
+    if (!this.settings.pageNumbers && !this.settings.runningHeaderFooter) return;
+    this.oldShellNoticed = true;
+    new Notice(t('notice.oldShell'));
   }
 
   // Der Vektor-Weg (Core-14-Engine): iPhone, iPad und Rückfall am Desktop. Verhalten unverändert.

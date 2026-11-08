@@ -1,10 +1,13 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeAll } from 'vitest';
 // AbstractInputSuggest: vom vendorten settings_walker via folder-suggest importiert. Der
 // Vendor bleibt verbatim, der Mock waechst mit — nicht umgekehrt.
-vi.mock('obsidian', () => ({ PluginSettingTab: class {}, Setting: class {}, App: class {}, AbstractInputSuggest: class {} }));
+// Platform ist ein veränderbares Objekt: die Tests stellen isDesktopApp je Fall um.
+vi.mock('obsidian', () => ({ PluginSettingTab: class {}, Setting: class {}, App: class {}, AbstractInputSuggest: class {}, Platform: { isDesktopApp: true } }));
+import { Platform } from 'obsidian';
 import { DEFAULT_SETTINGS, settingsToOptions, SECTIONS, createCollapsibleStorage, PaperizeSettingTab } from '../../src/obsidian/settings';
 import { mergeSettings } from '../../src/vendor/kit/settings';
-import { EN, DE } from '../../src/i18n/strings';
+import { EN, DE, registerI18n } from '../../src/i18n/strings';
+import { setLang } from '../../src/vendor/kit/i18n';
 
 describe('SECTIONS', () => {
   it('lists the five sections in render order, output first', () => {
@@ -174,7 +177,7 @@ describe('getSettingDefinitions', () => {
     // Bewusst als Literal-Liste: eine aus dem Code abgeleitete Erwartung wuerde jede
     // Auslassung mit-ableiten und den Regressionsschutz aufheben.
     const expected = [
-      'outputMode', 'customFolder', 'openAfter', 'filenameTemplate',
+      'desktopProfile', 'outputMode', 'customFolder', 'openAfter', 'filenameTemplate',
       'pageSize', 'marginMm',
       'fontChoice', 'baseSizePt', 'lineHeight', 'imageMaxWidthPct',
       'showTitle', 'showFrontmatter', 'pageNumbers', 'runningHeaderFooter',
@@ -221,5 +224,47 @@ describe('setting control host', () => {
     await t2.setControlValue('baseSizePt', 14);
     expect(plugin.settings.baseSizePt).toBe(14);
     expect(saved).toBe(1);
+  });
+});
+
+describe('desktop profile setting', () => {
+  beforeAll(() => { registerI18n(); setLang('en'); });
+  function items(isDesktop: boolean, group = 'output') {
+    (Platform as { isDesktopApp: boolean }).isDesktopApp = isDesktop;
+    try {
+      const plugin = { settings: { ...DEFAULT_SETTINGS, uiCollapsed: {} }, saveSettings: async () => {} };
+      const g = new PaperizeSettingTab({} as never, plugin).getSettingDefinitions()
+        .find((d) => (d as unknown as { key?: string }).key === group);
+      return ((g as { items?: unknown[] }).items ?? []) as { name?: string; desc?: string; control?: { key: string; options?: Record<string, string> } }[];
+    } finally { (Platform as { isDesktopApp: boolean }).isDesktopApp = true; }
+  }
+
+  it('defaults to paper', () => {
+    expect(DEFAULT_SETTINGS.desktopProfile).toBe('paper');
+  });
+  it('shows the profile row first in the output group on desktop', () => {
+    const first = items(true)[0];
+    expect(first.control?.key).toBe('desktopProfile');
+    expect(Object.keys(first.control?.options ?? {})).toEqual(['paper', 'screen']);
+  });
+  it('omits the row elsewhere', () => {
+    expect(items(false).some((i) => i.control?.key === 'desktopProfile')).toBe(false);
+    expect(items(false)[0].control?.key).toBe('outputMode');
+  });
+  it('marks the vector-only settings on desktop, and only there', () => {
+    const hint = EN['settings.vectorOnly.hint'];
+    expect(hint).toBeTruthy();
+    for (const key of ['fontChoice', 'baseSizePt', 'lineHeight']) {
+      const row = items(true, 'type').find((i) => i.control?.key === key);
+      expect(row?.desc, key).toContain(hint);
+      expect(items(false, 'type').find((i) => i.control?.key === key)?.desc ?? '', key).not.toContain(hint);
+    }
+  });
+  it('has the strings in both languages', () => {
+    for (const k of ['settings.desktopProfile.name', 'settings.desktopProfile.desc', 'settings.desktopProfile.paper',
+      'settings.desktopProfile.screen', 'settings.vectorOnly.hint', 'cmd.exportScreen', 'cmd.exportPaper', 'notice.oldShell']) {
+      expect(EN[k], `EN ${k}`).toBeTruthy();
+      expect(DE[k], `DE ${k}`).toBeTruthy();
+    }
   });
 });

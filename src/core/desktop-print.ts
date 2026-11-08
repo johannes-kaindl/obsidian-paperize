@@ -6,6 +6,20 @@ import { obsidianPrintResetCss, paperProfileCss } from '../vendor/kit/print-css'
 
 export type DesktopProfile = 'paper' | 'screen';
 
+/** Ein Export-Befehl; `profile: null` folgt der Einstellung `desktopProfile`. */
+export interface ExportCommandDef { id: string; nameKey: string; profile: DesktopProfile | null }
+
+/** Befehle je Plattform: die zwei benannten Profile gibt es nur am Desktop (am iPhone wirkt kein Profil). */
+export function exportCommands(isDesktop: boolean): ExportCommandDef[] {
+  const base: ExportCommandDef[] = [{ id: 'export-pdf', nameKey: 'cmd.export', profile: null }];
+  if (!isDesktop) return base;
+  return [
+    ...base,
+    { id: 'export-pdf-screen', nameKey: 'cmd.exportScreen', profile: 'screen' },
+    { id: 'export-pdf-paper', nameKey: 'cmd.exportPaper', profile: 'paper' },
+  ];
+}
+
 export interface DesktopPageSettings {
   pageSize: 'A4' | 'Letter';
   marginMm: number;

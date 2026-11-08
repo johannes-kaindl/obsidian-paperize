@@ -18,3 +18,4 @@ export class PluginSettingTab {
 export class Setting {
   constructor(_containerEl: any) {}
 }
+export const Platform = { isDesktopApp: true };
