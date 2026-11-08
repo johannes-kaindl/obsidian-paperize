@@ -2,9 +2,9 @@
 
 > [🇬🇧 English](https://github.com/johannes-kaindl/obsidian-paperize/blob/main/README.md) · 🇩🇪 Deutsch
 
-Ein Obsidian-Plugin, das die aktive Notiz als sauberes, textselektierbares **Vektor-PDF**
-exportiert — nur der Inhalt deiner Notiz, sonst nichts. Funktioniert identisch auf
-Desktop, iPhone und iPad.
+Ein Obsidian-Plugin, das die aktive Notiz als sauberes, textselektierbares **PDF**
+exportiert — nur der Inhalt deiner Notiz, sonst nichts. Am Desktop folgt das PDF deinem
+Theme, auf iPhone und iPad ist es ein schlichtes Vektor-PDF.
 
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue.svg)](https://github.com/johannes-kaindl/obsidian-paperize/blob/main/LICENSE)
 [![Docs: CC BY-SA 4.0](https://img.shields.io/badge/docs-CC%20BY--SA%204.0-lightgrey.svg)](https://github.com/johannes-kaindl/obsidian-paperize/blob/main/LICENSE-DOCS)
@@ -17,7 +17,13 @@ Desktop, iPhone und iPad.
 
 - **Ein Befehl, ein PDF:** **Aktive Notiz als PDF exportieren** ausführen (Befehlspalette
   oder Ribbon-Icon) — die aktive Notiz wird zu einem echten, textselektierbaren
-  Vektor-PDF. Kein Druckdialog des Browsers, kein Screenshot-Umweg.
+  PDF. Kein Druckdialog des Browsers, kein Screenshot-Umweg.
+- **Am Desktop sieht das PDF aus wie deine Notiz.** Callouts behalten ihren Kasten,
+  Mermaid-Diagramme und Formeln werden gezeichnet, Schriften und Farben deines Themes
+  werden übernommen, die Schriften eingebettet. Zwei Looks: **Papier** (weißer Grund,
+  dunkler Text, dünne Linien, spart Tinte, unabhängig von den Farben des Themes; der
+  Standard) und **Wie in Obsidian** (das Theme, wie es ist, auch mit dunklem Grund). Siehe
+  [Zwei Looks am Desktop](#zwei-looks-am-desktop).
 - **Zweisprachige Oberfläche (Deutsch / Englisch):** Befehle, Einstellungen und Hinweise
   folgen automatisch der Anzeigesprache von Obsidian — keine separate Einstellung.
 - **Standard-Markdown-Umfang:** Überschriften, Absätze, Bold/Italic/Inline-Code,
@@ -31,9 +37,11 @@ Desktop, iPhone und iPad.
 - **Vier Ausgabeziele**, wählbar in den Einstellungen: neben der Notiz (Standard), der
   Obsidian-Anhangordner, ein eigener Ordner, oder Teilen/Öffnen außerhalb des Vaults
   (mobiles Teilen-Menü bzw. Standard-App des Betriebssystems am Desktop).
-- **Desktop und iPhone/iPad, identisch.** `main.js` erzeugt die Vektor-PDF-Bytes selbst
-  — kein `window.print()`, keine WebView-Druck-Pipeline nötig, derselbe Codepfad läuft
-  überall (`isDesktopOnly: false`).
+- **Zwei Ergebnisse, ein Plugin.** Am Desktop lässt Paperize die Browser-Engine von
+  Obsidian die Notiz drucken (so sieht sie aus wie die Notiz). Auf iPhone und iPad und
+  überall, wo das nicht verfügbar ist, schreibt `main.js` das Vektor-PDF mit der kleinen
+  Engine unten selbst (`isDesktopOnly: false`). Scheitert der Desktop-Weg, sagt Paperize es
+  in einer Notice und exportiert im einfachen Stil.
 - **Zur Laufzeit abhängigkeitsfrei, keine Netzwerkzugriffe, keine Telemetrie.** Der
   PDF-Writer ist eine kleine, pure Engine, vendort unter `src/vendor/kit/pdf/` (aus
   `obsidian-kit@0.8.0`) — keine Drittanbieter-PDF-Bibliothek, kein `fetch`, nichts
@@ -44,7 +52,7 @@ Desktop, iPhone und iPad.
 
 - **Obsidian 1.8.7** oder neuer (das Plugin folgt der Anzeigesprache der App; dafür
   braucht es die `getLanguage()`-API, die es erst ab dieser Version gibt).
-- Desktop **und** iPhone/iPad — Paperize erzeugt auf beiden echte Vektor-PDF-Bytes.
+- Desktop **und** iPhone/iPad — auf beiden ein echtes PDF; das PDF im Theme-Stil ist ein Desktop-Feature.
 - Sonst nichts: keine externe PDF-Bibliothek, kein Netzzugriff, keine Begleit-App.
 
 ## Installation
@@ -80,7 +88,9 @@ Dann: Obsidian → Einstellungen → Community-Plugins → neu laden → **Paper
 
 1. Beliebige Markdown-Notiz öffnen.
 2. **Aktive Notiz als PDF exportieren** ausführen (Befehlspalette) oder das
-   Ribbon-Icon klicken.
+   Ribbon-Icon klicken. Am Desktop gibt es zwei weitere Befehle, **… (wie in Obsidian)** und
+   **… (Papier)**, die den Look für diesen Export wählen; der erste folgt der Einstellung
+   **Aussehen am Desktop**.
 3. Das PDF erscheint am konfigurierten Ausgabeziel (siehe **Konfiguration →
    Ausgabeziel** unten). Wurden Elemente beim Export vereinfacht, meldet eine Notice
    die Anzahl.
@@ -111,13 +121,14 @@ gelassen hast.
 | --- | --- | --- | --- |
 | Ausgabe | **Ausgabeziel** | Wohin das PDF geschrieben wird: *neben der Notiz*, *Obsidian-Anhangordner*, *eigener Ordner* oder *Teilen/Öffnen außerhalb des Vaults*. | Neben der Notiz |
 | Ausgabe | **Eigener Ausgabe-Ordner** | Vault-relativer Ordner, mit Ordnervorschlägen beim Tippen. Nur sichtbar, wenn das Ausgabeziel *eigener Ordner* ist. | *(leer)* |
+| Ausgabe | **Aussehen am Desktop** | *Papier* (spart Tinte, unabhängig von den Farben des Themes) oder *Wie in Obsidian* (übernimmt das Theme, auch einen dunklen Hintergrund). Nur am Desktop. | Papier |
 | Ausgabe | **PDF nach dem Export öffnen (Standard-App)** | Öffnet die gespeicherte Datei in deiner Standard-PDF-App. Im Modus *Teilen/öffnen* ausgeblendet, der immer öffnet oder teilt. | Aus |
 | Ausgabe | **Dateiname-Schema** | Siehe [unten](#dateiname-schema). | `{title}` |
 | Seite | **Seitenmaß** | A4 oder Letter. | A4 |
 | Seite | **Ränder (mm)** | Seitenrand auf allen vier Seiten, 12–50 mm. | 20 mm |
 | Typografie | **Schriftfamilie** | Basis-Schriftart — Sans (Helvetica), Serif (Times) oder Mono (Courier). Nur Adobe-Core-14-Standardschriften, siehe [Schriften](#schriften--die-core-14-grenze) unten. | Sans |
-| Typografie | **Schriftgröße (pt)** | Basis-Textgröße, 6–24 pt. | 10,5 pt |
-| Typografie | **Zeilenabstand** | Vielfaches der Schriftgröße, 1,0–2,0. | 1,45 |
+| Typografie | **Schriftgröße (pt)** | Basis-Textgröße, 6–24 pt. Gilt am iPhone und iPad sowie im einfachen Stil. | 10,5 pt |
+| Typografie | **Zeilenabstand** | Vielfaches der Schriftgröße, 1,0–2,0. Gilt am iPhone und iPad sowie im einfachen Stil. | 1,45 |
 | Typografie | **Maximale Bildbreite (%)** | Anteil der Textbreite, den ein Bild höchstens einnimmt, 25–100 %. | 100 % |
 | Inhalt | **Titel oben** | Druckt den Namen der Notiz als Titel über dem Inhalt. Entfällt, wenn die Notiz schon mit einer eigenen Überschrift beginnt — dann ist die Überschrift der Titel. | An |
 | Inhalt | **Frontmatter als Metadaten-Block zeigen** | Frontmatter erscheint als dezente Metadaten-Liste oben statt als roher YAML-Block. | An |
@@ -150,9 +161,31 @@ Kollisionen selbst auf.
 
 <img src="https://raw.githubusercontent.com/johannes-kaindl/obsidian-paperize/main/docs/images/filename-versions.png" alt="Der Datei-Explorer mit Quarterly Field Report v1.pdf und v2.pdf neben der Notiz, nachdem zweimal mit dem Schema {title} v{version} exportiert wurde" width="600">
 
+## Zwei Looks am Desktop
+
+Am Desktop rendert Paperize deine Notiz so, wie Obsidian sie zeigt, und druckt sie dann mit der
+eingebauten Browser-Engine von Obsidian (Chromium). Der Text bleibt markierbar, die Schriften
+deines Themes werden eingebettet. Den Look wählst du mit **Aussehen am Desktop** oder per Befehl:
+
+- **Papier** (Standard): weißer Grund, dunkler einfarbiger Text, dünne Linien statt Flächen,
+  Links unterstrichen, Diagramme in der hellen Fassung. Ein dunkles Theme kostet nie Tinte.
+- **Wie in Obsidian:** das Theme, wie es ist, mit Seitenhintergrund und den Farben von
+  Callouts und Code.
+
+Seitenmaß, Ränder, Titel, Metadaten, Seitenzahlen, Fußzeile, Umbruch-Marker und die
+Umbruch-Schalter gelten für beide Looks. Seitenzahlen und Fußzeile brauchen Obsidian auf
+Chromium 131 oder neuer; auf einer älteren Installation bleibt es beim Theme-Stil, ohne sie,
+und Paperize sagt es einmal je Sitzung.
+
+**Wo das geprüft wurde:** macOS mit Obsidian 1.15.1 (Chromium 142) und Linux im Container mit
+Obsidian 1.15.0 (Chromium 150), mit dem Theme Field Report hell und dunkel und mit dem
+Standard-Theme. **Nicht geprüft:** Windows, Obsidian-Installationen unter Chromium 131,
+andere Themes. Der Weg für iPhone und iPad ist unverändert.
+
 ## Funktionsweise
 
-Obsidian rendert die Notiz so, wie es das immer tut; Paperize wandelt dieses Ergebnis
+Auf iPhone und iPad (und am Desktop als Rückfall) rendert Obsidian die Notiz so, wie es das
+immer tut; Paperize wandelt dieses Ergebnis
 anschließend in eine kleine, plattformunabhängige Beschreibung der Seite um (Überschriften,
 Absätze, Listen, Tabellen, Bilder) und schreibt daraus direkt das PDF — ohne Druckdialog des
 Browsers, ohne externe Bibliothek, ohne Netz. Deshalb ist das Ergebnis auf dem Desktop und
@@ -160,13 +193,17 @@ unter iOS identisch, und deshalb bleibt der Text markierbar, statt zum Bild von 
 
 Zwei Konsequenzen folgen aus diesem Aufbau, beide bewusst:
 
-- **Was Obsidian als Grafik statt als Text zeichnet** (Formeln, Mermaid-Diagramme), lässt
-  sich nicht als Text übernehmen. Paperize markiert die Stelle, statt sie stillschweigend
-  wegzulassen, und zählt sie in der Notice nach dem Export mit.
+- **Was Obsidian als Grafik statt als Text zeichnet** (Formeln), lässt sich nicht als Text
+  übernehmen. Paperize markiert die Stelle, statt sie stillschweigend wegzulassen, und zählt
+  sie in der Notice nach dem Export mit. Ein Mermaid-Diagramm steht als Quelltext in einem
+  Codeblock im PDF.
 - **Live-Ansichten** wie Bases- oder Dataview-Blöcke sind kein statisches Markdown; sie
   rendern als Bedienoberfläche und lassen sich in einem Dokument nicht sinnvoll abbilden.
 
 ### Standard-Markdown-Umfang & Graceful Degradation
+
+Dieser Abschnitt beschreibt den einfachen Stil (iPhone, iPad, Rückfall). Am Desktop wird
+gedruckt, was Obsidian zeichnet, Callouts und Diagramme erscheinen also gezeichnet.
 
 Paperize deckt einen bewusst begrenzten, gut getesteten Markdown-Umfang ab, siehe
 **Funktionen** oben. Alles, was Obsidian rendert und außerhalb dieses Umfangs liegt —
@@ -179,6 +216,9 @@ Abgleich mit der Notiz lohnt.
 <img src="https://raw.githubusercontent.com/johannes-kaindl/obsidian-paperize/main/docs/images/degradation.png" alt="Links eine Notiz mit Callout und Formel, rechts das erzeugte PDF mit dem Callout-Text und einem Platzhalter für die Formel, dazu die Notice über ein vereinfachtes Element" width="600">
 
 ## Schriften & die Core-14-Grenze
+
+Das gilt für den einfachen Stil (iPhone, iPad, Rückfall). Am Desktop bettet das PDF die
+Schriften deines Themes ein.
 
 Paperize nutzt ausschließlich die **Adobe-Core-14-PDF-Standardschriften** (die
 Helvetica-, Times- und Courier-Familien) — die Schriften, die jeder PDF-Reader ohne

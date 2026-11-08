@@ -30,7 +30,7 @@ Each entry starts with what you see — the wording is the plugin's own English 
 
 > PDF created. 2 element(s) were simplified (e.g. callouts, math).
 
-**Cause:** Paperize writes the PDF itself, as text. What Obsidian draws as a picture — formulas, Mermaid diagrams — cannot be carried over, so the PDF shows **[Formula]** or **[Graphic]** at that spot instead of dropping it silently. Callouts and embeds are reduced to their plain text. The notice counts these elements.
+**Cause:** on iPhone and iPad, and when the desktop print path is not available, Paperize writes the PDF itself, as text. What Obsidian draws as a picture — formulas — cannot be carried over, so the PDF shows **[Formula]** or **[Graphic]** at that spot instead of dropping it silently. A Mermaid diagram appears as its source code. Callouts and embeds are reduced to their plain text. The notice counts these elements. On desktop the normal path prints what Obsidian draws, so this only happens after the notice *Exported in the plain style*.
 
 **Fix:** there is none inside Paperize; this is the deliberate scope. If the element matters, export it as an image yourself and put the image in the note.
 
@@ -49,3 +49,15 @@ Each entry starts with what you see — the wording is the plugin's own English 
 ## Getting help
 
 Still stuck? [Open an issue](https://github.com/johannes-kaindl/obsidian-paperize/issues) with your Obsidian version, the plugin version (Settings → Community plugins) and what you expected to happen.
+
+## "Exported in the plain style: the desktop print path was not available"
+
+**Cause:** on desktop, Paperize prints with Obsidian's browser engine. Something stopped that (the print engine did not answer in time, produced an empty page, or is not available), so Paperize wrote the plain vector PDF instead. The export is complete, it just does not carry the theme.
+
+**Fix:** run the export again. If it keeps happening, note which theme you use, since a theme with unusual page styles can produce an empty print, and open an issue.
+
+## Page numbers or the footer are missing on desktop
+
+**Cause:** they need Obsidian on Chromium 131 or newer. On an older installation Paperize leaves them out and shows *Page numbers and footers need a newer Obsidian installation* once per session.
+
+**Fix:** update Obsidian (the installer, not only the app's automatic update, brings the browser engine).

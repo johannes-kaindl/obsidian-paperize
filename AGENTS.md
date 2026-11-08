@@ -6,19 +6,19 @@ Conventions for AI agents (Claude Code, Codex, …) working on this repository.
 
 ## Project character
 
-Obsidian-Plugin „Paperize": exportiert die aktive Notiz als sauberes, textselektierbares Vektor-PDF — **kein** Briefkopf, keine Marke, nur der Notizinhalt. Bewusster Gegenpart zu Letterhead: Letterhead formatiert einen Geschäftsbrief, Paperize gibt einfach die Notiz als PDF aus, mit Standard-Markdown-Unterstützung und garantierter Degradation statt Abbruch. Desktop **und** iOS/iPad (`isDesktopOnly: false`) erzeugen echte Vektor-PDF-Bytes.
+Obsidian-Plugin „Paperize": exportiert die aktive Notiz als sauberes, textselektierbares Vektor-PDF — **kein** Briefkopf, keine Marke, nur der Notizinhalt. Bewusster Gegenpart zu Letterhead: Letterhead formatiert einen Geschäftsbrief, Paperize gibt einfach die Notiz als PDF aus, mit Standard-Markdown-Unterstützung und garantierter Degradation statt Abbruch. Am Desktop druckt Chromium (`<webview>.printToPDF`) die Notiz im Stil des Themes (Profile Papier und Bildschirm), am iPhone und iPad (`isDesktopOnly: false`) und als Rückfall erzeugt die eigene Engine echte Vektor-PDF-Bytes.
 
 - **Plugin-ID:** `paperize` (deployed unter `.obsidian/plugins/paperize/`).
 - **Nicht Zero-Build:** Anders als Letterhead ist dies ein TS+esbuild-Projekt. `main.js` ist ein Build-Artefakt (`.gitignore`) — es wird von `npm run build` bzw. der Release-Action aus `src/` erzeugt, nicht committet.
 
 ## Architecture principles
 
-- Kein Electron-/Node-API im Laufzeitpfad → mobil-tauglich. Nur Obsidian-API + Browser-APIs.
+- Kein `import` aus `electron`/`fs`, kein `require()`, kein `nodeintegration`: Der Desktop-Druck läuft über ein `<webview>`-Element hinter `Platform.isDesktopApp`, alles andere ist Obsidian-API + Browser-APIs → mobil-tauglich.
 - **Pure Engine vendored:** `src/vendor/kit/pdf/` ist die pure PDF-Engine aus dem Kit, per `tools/sync-kit.sh` übernommen, nicht von Hand editiert. Änderungen an der Engine gehören stromaufwärts ins Kit, nicht hier. **Den aktuellen Stand nennt `src/vendor/kit/VENDOR.json`, nicht diese Zeile** (eine Versionsnummer in der Prosa altert still).
 - **DOM→IR-Seam:** `src/vendor/kit/pdf/dom-to-ir.ts` ist der einzige Ort, an dem Obsidians gerenderter Markdown-DOM und die pure Engine sich berühren. Nicht unterstützte Elemente werden zu `{ type: 'unsupported' }`-Blöcken (Degradation, kein Abbruch); der Zähler treibt die Zusammenfassungs-Notice in `main.ts`.
 - Reine Funktionen (`src/core/*`, `src/vendor/kit/*`) sind frei von Obsidian-Imports und damit in Node/vitest testbar; `npm run check:pure` erzwingt das. Die Grenze verläuft bei „pure", nicht bei „vendored": ein neues Obsidian-gekoppeltes Kit-Modul gehört nach `src/vendor/kit-obsidian/` (einziger Eintrag in `EXCLUDED` von `scripts/check-pure.mjs`), nicht in eine weitere Skript-Ausnahme.
 - **Settings-Tab zweigleisig, `getSettingDefinitions()` ist die eine Wahrheit:** Wer eine Einstellung hinzufügt, ergänzt `groups()` — **nie einen der beiden Render-Pfade einzeln**, sonst driften sie auseinander. `SECTIONS` bleibt die pure Tabelle.
-- **Core-14-Schriften only:** keine eingebetteten Schriften, keine Custom-Fonts — bewusste Grenze, nicht „noch nicht implementiert". Warum und Aufbau: `docs/internal/decisions.md`, `docs/internal/architecture.md`.
+- **Core-14-Schriften only im Vektor-Weg** (iPhone, iPad, Rückfall): keine eingebetteten Schriften, keine Custom-Fonts — bewusste Grenze, nicht „noch nicht implementiert". Der Desktop-Weg bettet die Schriften des Themes ein. Warum und Aufbau: `docs/internal/decisions.md`, `docs/internal/architecture.md`.
 
 ## Commands
 
@@ -59,6 +59,7 @@ Releases erzeugt **GitHub Actions** (`.github/workflows/release.yml`), getrigger
 - Bevor du etwas unter `src/vendor/` änderst, das Kit hebst oder `scripts/check-pure.mjs` anfasst: `.claude/rules/vendor-kit.md`.
 - Bevor du Dateiname-Schema, Ausgabepfade oder `{version}` änderst: `.claude/rules/dateiname-und-pfade.md`.
 - Bevor du den DOM→IR-Weg, Bilder oder Datumsformatierung in `main.ts` anfasst: `.claude/rules/export-dom.md`.
+- Bevor du den Desktop-Druckweg (`export-desktop.ts`, `desktop-print.ts`) oder die Druck-Matrix (`scripts/print-matrix.ts`) anfasst: `.claude/rules/export-desktop.md`.
 - Bevor du den GUI-Smoke änderst oder eine Gegenprobe fährst: `.claude/rules/gui-smoke-gegenprobe.md`, `docs/SMOKE.md`; Treiber-Regeln des Dachs in `../.claude/rules/gui-smoke-treiber.md`.
 - Vor Änderungen an Modul-Layout, Schichten, Markdown-Umfang oder Release-Weg: `docs/internal/architecture.md`.
 - Bevor du eine Altentscheidung (Zero-Build, Core-14, kein Node-API, Degradation, Slider, Settings-Definitionen, SDD-Ablage) übernimmst: `docs/internal/decisions.md`.

@@ -114,6 +114,7 @@ const PUNKTE = [
   'H3 Teilen: ohne Fremddatei keine Rückfrage, die Datei geht an die Standard-App (Stub)',
   'I1 Rückfall: wirft der Druck, entsteht das PDF im einfachen Stil und die Notice sagt es',
   'I2 Abbruch: kein Rückfall, keine Datei, weder Druck-Host noch Render-Container noch Webview im DOM',
+  'J1 Mermaid am Vektor-Weg: Der Quelltext steht im PDF, die Notiz bricht nicht ab',
 ] as const;
 
 const bilanz = createBilanz({ punkte: PUNKTE });
@@ -917,6 +918,24 @@ async function pruefeDesktopWeg(cdp: Cdp, vaultDir: string): Promise<void> {
     );
   } catch (e) { unmeasured('I2 Abbruch: kein Rückfall, keine Datei, weder Druck-Host noch Render-Container noch Webview im DOM', (e as Error).message); }
   finally { await setzeDruck(cdp, 'null').catch(() => undefined); rmSync(ziel, { force: true }); }
+
+  // J1 — misst, was der Vektor-Weg (iPhone, iPad, Rückfall) mit einem Mermaid-Diagramm tut. Die README sagte „wird markiert“; der Code
+  // (`extractCodeBlocks`) behandelt den Block wie Code. Das PDF entscheidet.
+  const muster = join(vaultDir, 'Muster.pdf');
+  try {
+    rmSync(muster, { force: true });
+    await exportNote(cdp, 'Muster.md');
+    const da = await warteAufDatei(muster);
+    const text = da ? pdfText(readFileSync(muster)) : '';
+    const quelltext = /flowchart LR/.test(text) && /MARK-KNOTEN/.test(text);
+    const platzhalter = /\[(Grafik|Graphic)\]/.test(text);
+    record(
+      'J1 Mermaid am Vektor-Weg: Der Quelltext steht im PDF, die Notiz bricht nicht ab',
+      da && quelltext,
+      da ? `Quelltext „flowchart LR“ und „MARK-KNOTEN“ ${quelltext ? 'im PDF' : 'FEHLEN'}; Platzhalter „[Grafik]“ ${platzhalter ? 'steht auch da' : 'nicht'}` : 'kein PDF',
+    );
+  } catch (e) { unmeasured('J1 Mermaid am Vektor-Weg: Der Quelltext steht im PDF, die Notiz bricht nicht ab', (e as Error).message); }
+  finally { rmSync(muster, { force: true }); }
 }
 
 async function main(): Promise<void> {

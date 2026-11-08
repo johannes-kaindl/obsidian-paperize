@@ -4,16 +4,20 @@ Modul-Layout und Schnittstellen. Das Warum steht in `docs/internal/decisions.md`
 
 ## Schichten
 
-- `src/core/*` ist pure (kein Obsidian-Import, in Node/vitest testbar): Dateiname-Schema (`filename.ts`, ein Shim über das vendorte Kit-Modul), Frontmatter, Bildquellen (`image-source.ts`), Vorbereitung der Optionen (`prepare.ts`). `npm run check:pure` erzwingt das für `src/core` und `src/vendor`.
-- `src/obsidian/*` ist die einzige Schicht mit Obsidian-API: `main.ts` (Befehl, Ribbon, Export-Ablauf), `output.ts` (Ausgabemodi, Zielpfad, `{version}`-Zählung), `settings.ts` (Settings-Tab), `export-progress.ts`, `help-row.ts`.
+- `src/core/*` ist pure (kein Obsidian-Import, in Node/vitest testbar): Profile, Seiten-CSS und Befehlsliste des Desktop-Wegs (`desktop-print.ts`), Dateiname-Schema (`filename.ts`, ein Shim über das vendorte Kit-Modul), Frontmatter, Bildquellen (`image-source.ts`), Vorbereitung der Optionen (`prepare.ts`). `npm run check:pure` erzwingt das für `src/core` und `src/vendor`.
+- `src/obsidian/*` ist die einzige Schicht mit Obsidian-API: `main.ts` (Befehle, Ribbon, Export-Ablauf, Rückfall), `export-desktop.ts` (Desktop-Weg), `output.ts` (Ausgabemodi, Zielpfad, `{version}`-Zählung), `settings.ts` (Settings-Tab), `export-progress.ts`, `help-row.ts`.
 - `src/i18n/strings.ts` trägt die EN/DE-Texte; die Sprachwahl kommt aus dem vendorten Kit-Modul `i18n.ts`.
 - `src/vendor/kit/` ist die vendorte pure Schicht, `src/vendor/kit-obsidian/` die Obsidian-gekoppelte. Beide sind Kopien mit Herkunftsstempel; den Stand nennen die `VENDOR.json`, die Konfiguration steht in `tools/kit-sync.json`.
 
 ## Vendor-Schichtung
 
-Das Kit hat zwei Schichten (`src/pure` und `src/obsidian`); der Vendor spiegelt sie. Obsidian-gekoppelte Kit-Module liegen unter `src/vendor/kit-obsidian/` (`collapsible.ts`, `folder-suggest.ts`, `settings_walker.ts`, `help-setting.ts`, `confirm.ts`, `share-export.ts`). Dieser Ordner steht als einziger Eintrag in `EXCLUDED` in `scripts/check-pure.mjs`. Alles übrige im Vendor (`i18n`, `pdf`, `settings`, `vault-path`, `filename-template`, `rel-path` …) ist pure und bleibt geprüft. Die Grenze verläuft bei „pure“, nicht bei „vendored“.
+Das Kit hat zwei Schichten (`src/pure` und `src/obsidian`); der Vendor spiegelt sie. Obsidian-gekoppelte Kit-Module liegen unter `src/vendor/kit-obsidian/` (`collapsible.ts`, `folder-suggest.ts`, `settings_walker.ts`, `help-setting.ts`, `confirm.ts`, `share-export.ts`, `clock.ts`, `print-to-pdf.ts`). Dieser Ordner steht als einziger Eintrag in `EXCLUDED` in `scripts/check-pure.mjs`. Alles übrige im Vendor (`i18n`, `pdf`, `settings`, `vault-path`, `filename-template`, `rel-path` …) ist pure und bleibt geprüft. Die Grenze verläuft bei „pure“, nicht bei „vendored“.
 
 Die PDF-Engine (`src/vendor/kit/pdf/`: Layout, Metrics, Writer, IR) ist die pure Engine aus obsidian-kit und Obsidian-frei. Die Domänen-freien Module (`i18n`, `settings`, `filename-template`, `data-url`, `local-stamp`, `rel-path`) kommen aus code-kit.
+
+## Desktop-Weg (Chromium)
+
+`export-desktop.ts` rendert die Notiz mit `MarkdownRenderer.render` in einen eingehängten, unsichtbaren Container (`.paperize-render-host`, ohne `extractCodeBlocks`, damit Mermaid zeichnen darf), wartet auf die Diagramme, bettet Bilder und relative Schrift-URLs als `data:` ein und sammelt das CSS (`collectDocumentCss`, oberste `@media print`-Regeln entfallen). Daraus baut `buildPrintDocument` ein eigenständiges HTML-Dokument mit Rücksetzung von Obsidians Druck-CSS, Profil-CSS, Paginierung und `@page`; `printHtmlToPdf` druckt es in einem unsichtbaren `<webview>`. Alle reinen Bausteine kommen aus dem Kit (`collect-css`, `print-document`, `print-css`, `timeout` pur; `print-to-pdf`, `clock` Obsidian-gekoppelt), Paperize behält die Verdrahtung und die Profile. `main.ts` hält die Naht `desktopPrint` (Treiber setzen `null` und messen den Vektor-Weg) und fällt bei jedem Fehler außer Abbruch auf `renderVector` zurück. Ablauf und Messpunkte: `docs/SMOKE.md`.
 
 ## DOM→IR-Seam
 
@@ -21,7 +25,7 @@ Die PDF-Engine (`src/vendor/kit/pdf/`: Layout, Metrics, Writer, IR) ist die pure
 
 ## Markdown-Umfang
 
-Überschriften, Absätze, Bold/Italic/Inline-Code, verschachtelte Listen, Blockquotes, HR, Links, Bilder (zu JPEG re-encodiert), Codeblöcke, einfache Tabellen. Alles außerhalb (Callouts, Mathe, Embeds, …) wird vereinfacht dargestellt statt den Export scheitern zu lassen.
+Überschriften, Absätze, Bold/Italic/Inline-Code, verschachtelte Listen, Blockquotes, HR, Links, Bilder (zu JPEG re-encodiert), Codeblöcke, einfache Tabellen. Alles außerhalb (Callouts, Mathe, Embeds, …) wird im Vektor-Weg vereinfacht dargestellt statt den Export scheitern zu lassen. Der Desktop-Weg druckt, was Obsidian zeichnet.
 
 ## Settings-Tab (zweigleisig)
 

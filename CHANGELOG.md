@@ -6,8 +6,17 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- On desktop, the PDF now follows your theme: callouts keep their box, Mermaid diagrams and formulas are drawn, and the fonts and colours of the theme carry over, with the fonts embedded. The text stays selectable. iPhone and iPad keep the plain vector PDF.
+- Two looks for the desktop PDF: **Paper** (white page, dark text, thin lines, saves ink; the default) and **As in Obsidian** (the theme as it is). New setting **Look on desktop**, and two new commands, **Export active note as PDF (as in Obsidian)** and **… (paper)**.
+- If the desktop path fails (no print engine, timeout, an empty page), Paperize exports in the plain style and says so in a notice. Cancelling an export does not trigger that fallback.
+- On an Obsidian installation older than Chromium 131, page numbers and the footer are left out of the desktop PDF, with a notice once per session.
+
 ### Changed
 
+- The settings **Font family**, **Font size** and **Line height** now apply on iPhone and iPad and to the plain style only (on desktop the font comes from the theme); their descriptions say so.
+- Corrected the documentation: a Mermaid diagram appears as its source code in the plain style (it said the spot is marked).
 - Internal: the plugin now builds on the shared library at obsidian-kit 0.66.1 and code-kit 0.34.0 (it was 0.60.2 and 0.27.1). Nothing changes for you: the PDF engine and the settings helpers are byte-identical to before. The only code change is how the "share/open" mode checks the exported file name; it now also refuses a name made of `.` or `..` with spaces around it, which Paperize never produces (names are cleaned first and end in `.pdf`).
 
 ## [0.5.1] — 2026-10-18
