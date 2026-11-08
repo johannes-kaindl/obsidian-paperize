@@ -25,9 +25,14 @@
  * (Rückbau und sha1-Vergleich macht der Aufrufer, `.claude/rules/gui-smoke-gegenprobe.md`). Erwartet:
  * kein brauchbares Druck-PDF, der Rückfall läuft und die Notice steht. Grün heißt hier: der Defekt wurde bemerkt.
  *
- * Messgrößen (Plan Task 6, Spec § 9): M1 Marker im Text, M2 Schwelle des leeren PDFs, M3 Schriften
- * eingebettet, M4 Eckpixel der Seite, M6 Tintendeckung Papier. Nicht gemessen: M5 Kontrast, M7 bis M12
- * (Task 8). Tintendeckung = mittlere Dunkelheit über alle Seiten bei 40 dpi (siehe `tintendeckung`).
+ * Messgrößen (Spec § 9): M1 Marker im Text, M2 Schwelle des leeren PDFs, M3 Schriften eingebettet,
+ * M4 Eckpixel der Seite, M5 Kontrast (Papier: Text; Bildschirm: Inline-Code), M6 Tintendeckung Papier,
+ * M7 Seitenzahl „n/m“ auf Seite 2 (abschaltbar), M9 die drei Befehle erzeugen je ihr Profil,
+ * M11 verdecktes Fenster (Prozess per System Events versteckt, `visibilityState` als Kontrolle).
+ * M12 (Linux im Container): `--container-setup --arm <id>` baut Vault und Thema, danach startet der Aufrufer den Container
+ * (`tools/obsidian-cdp/container/README.md`) und fährt `--container --arm <id> --port <Port>` gegen die laufende Instanz; M11 entfällt dort.
+ * Nicht hier: M8 (gui-smoke I1/I2), M10 (Sichtvergleich durch die Session),
+ * M13/M14 (nach dem Release, Gerätelauf). Tintendeckung = mittlere Dunkelheit über alle Seiten bei 40 dpi (siehe `tintendeckung`).
  */
 
 import { execFileSync } from 'node:child_process';
@@ -37,7 +42,7 @@ import { join } from 'node:path';
 import { cwd } from 'node:process';
 
 import { createBilanz, parseArgs, runDriver } from '../../tools/obsidian-cdp/bilanz.js';
-import { Cdp, attachTo, bereiteInstanzVor, clearNotices, closeExtraLeaves, notices, openExisting, pollUntil, requireVisible } from '../../tools/obsidian-cdp/cdp.js';
+import { Cdp, attachTo, bereiteInstanzVor, clearNotices, closeExtraLeaves, notices, openExisting, pollUntil, releaseFokusEmulation, requireVisible } from '../../tools/obsidian-cdp/cdp.js';
 import { zweitinstanzStartargumente } from '../../tools/obsidian-cdp/instanz.js';
 import { buildVault, requireEigenerBuild, stagingVaultDir } from '../../tools/obsidian-cdp/vault.js';
 import { beendeZweitinstanz, starteZweitinstanz } from '../../tools/obsidian-cdp/zweitinstanz.js';
@@ -167,13 +172,77 @@ export function nahe(a: readonly number[], b: readonly number[], tol: number): b
   return a.length === b.length && a.every((v, i) => Math.abs(v - (b[i] ?? 0)) <= tol);
 }
 
+/** WCAG-Kontrast zweier sRGB-Farben. */
+export function kontrastVerhaeltnis(a: readonly number[], b: readonly number[]): number {
+  const lin = (c: number): number => { const v = c / 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+  const lum = (c: readonly number[]): number => 0.2126 * lin(c[0] ?? 0) + 0.7152 * lin(c[1] ?? 0) + 0.0722 * lin(c[2] ?? 0);
+  const [hell, dunkel] = [lum(a), lum(b)].sort((x, y) => y - x) as [number, number];
+  return (hell + 0.05) / (dunkel + 0.05);
+}
+
+/** Wortrechtecke (PDF-Punkte) der ersten Seite aus `pdftotext -bbox`. */
+export function leseWorte(html: string): { text: string; x0: number; y0: number; x1: number; y1: number }[] {
+  const out: { text: string; x0: number; y0: number; x1: number; y1: number }[] = [];
+  const re = /<word xMin="([\d.]+)" yMin="([\d.]+)" xMax="([\d.]+)" yMax="([\d.]+)">([^<]*)<\/word>/g;
+  for (let m = re.exec(html); m; m = re.exec(html)) {
+    out.push({ x0: Number(m[1]), y0: Number(m[2]), x1: Number(m[3]), y1: Number(m[4]), text: m[5] ?? '' });
+  }
+  return out;
+}
+
+/** Kontrast eines Wortes im gedruckten PDF: Hintergrund = häufigste Farbe im Wortrechteck, Vordergrund = die davon am weitesten
+ *  entfernte (Luminanz). 200 dpi, damit dünne Striche ihre volle Farbe erreichen. `null`: Wort nicht gefunden. */
+export function messeKontrast(pdf: string, wort: string, seite = 1): { ratio: number; fg: number[]; bg: number[] } | null {
+  const box = leseWorte(werkzeug('pdftotext', ['-bbox', '-f', String(seite), '-l', String(seite), pdf, '-'])).find((w) => w.text.includes(wort));
+  if (!box) return null;
+  const dpi = 200;
+  const k = dpi / 72;
+  const x = Math.max(0, Math.floor(box.x0 * k) - 1);
+  const y = Math.max(0, Math.floor(box.y0 * k) - 1);
+  const w = Math.ceil((box.x1 - box.x0) * k) + 2;
+  const h = Math.ceil((box.y1 - box.y0) * k) + 2;
+  const dir = mkdtempSync(join(tmpdir(), 'paperize-kontrast-'));
+  try {
+    werkzeug('pdftoppm', ['-r', String(dpi), '-f', String(seite), '-l', String(seite), '-x', String(x), '-y', String(y), '-W', String(w), '-H', String(h), '-singlefile', pdf, join(dir, 'k')]);
+    const bild = leseP6(readFileSync(join(dir, 'k.ppm')));
+    const zaehler = new Map<number, number>();
+    for (let i = 0; i + 2 < bild.data.length; i += 3) {
+      const key = ((bild.data[i] ?? 0) << 16) | ((bild.data[i + 1] ?? 0) << 8) | (bild.data[i + 2] ?? 0);
+      zaehler.set(key, (zaehler.get(key) ?? 0) + 1);
+    }
+    const bgKey = [...zaehler.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 0xffffff;
+    const bg = [(bgKey >> 16) & 255, (bgKey >> 8) & 255, bgKey & 255];
+    let fg = bg;
+    let abstand = -1;
+    for (const key of zaehler.keys()) {
+      const c = [(key >> 16) & 255, (key >> 8) & 255, key & 255];
+      const d = Math.abs(luminanz(c[0] ?? 0, c[1] ?? 0, c[2] ?? 0) - luminanz(bg[0] ?? 0, bg[1] ?? 0, bg[2] ?? 0));
+      if (d > abstand) { abstand = d; fg = c; }
+    }
+    return { ratio: kontrastVerhaeltnis(fg, bg), fg, bg };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+/** Text einer einzelnen Seite. */
+export function seitenText(pdf: string, seite: number): string {
+  return werkzeug('pdftotext', ['-layout', '-f', String(seite), '-l', String(seite), pdf, '-']);
+}
+
 /* ------------------------------------------------------------------ Punkte */
 
 const punktName = (arm: Arm, profil: Profil, m: string): string => `${arm.id}/${profil} ${m}`;
 const M1 = 'M1 alle Marker im Text';
 const M3 = 'M3 Schriften eingebettet';
 const M4 = 'M4 Eckpixel der Seite';
+const M5 = 'M5 Kontrast';
 const M6 = 'M6 Tintendeckung';
+const M7 = 'M7 Seitenzahl „n/m“ auf Seite 2, abschaltbar';
+const M9 = 'M9 Befehle: jeder erzeugt sein Profil';
+const M11 = 'M11 verdecktes Fenster: Export läuft oder der Rückfall ist dokumentiert';
+const KONTRAST_PAPIER = 7;
+const KONTRAST_CODE = 4.5;
 const WEG = 'Weg: Desktop-Druck ohne Rückfall';
 const M2 = 'M2 Ein-Wort-Notiz über der Schwelle, kein Rückfall';
 const FEHLER = 'Mermaid-Fehler: PDF mit Fehlerkasten, kein Rückfall';
@@ -185,11 +254,11 @@ function sollListe(arme: Arm[], gegenprobe: boolean): string[] {
   for (const a of arme) {
     out.push(`${a.id} Aufbau: Thema und Modus stehen`);
     for (const p of PROFILE) {
-      out.push(punktName(a, p, WEG), punktName(a, p, M1), punktName(a, p, M3), punktName(a, p, M4));
+      out.push(punktName(a, p, WEG), punktName(a, p, M1), punktName(a, p, M3), punktName(a, p, M4), punktName(a, p, M5));
       if (p === 'paper') out.push(punktName(a, p, M6));
     }
   }
-  if (arme[0]) out.push(`${arme[0].id} ${M2}`, `${arme[0].id} ${FEHLER}`);
+  if (arme[0]) out.push(`${arme[0].id} ${M2}`, `${arme[0].id} ${FEHLER}`, `${arme[0].id} ${M7}`, `${arme[0].id} ${M9}`, `${arme[0].id} ${M11}`);
   return out;
 }
 
@@ -199,26 +268,58 @@ interface Lauf { pdf: string; dauerMs: number; notices: string; konsole: string[
 
 const FALLBACK_NOTICE = /plain style|einfachen Stil/i;
 
-async function exportiere(cdp: Cdp, vaultDir: string, notiz: string, profil: Profil, konsole: string[]): Promise<Lauf> {
+interface ExportOptionen {
+  /** Läuft nach dem Öffnen der Notiz, unmittelbar vor dem Start (z. B. Fenster verstecken). */
+  vorStart?: () => Promise<void>;
+  /** Befehls-Id (`paperize:…`) statt `exportActive(profil)`: misst den Weg, den der Nutzer nimmt. */
+  befehl?: string;
+}
+
+async function exportiere(cdp: Cdp, vaultDir: string, notiz: string, profil: Profil, konsole: string[], opt: ExportOptionen = {}): Promise<Lauf> {
   const pdf = join(vaultDir, notiz.replace(/\.md$/, '.pdf'));
   rmSync(pdf, { force: true });
   konsole.length = 0;
   await clearNotices(cdp);
   if (!(await openExisting(cdp, notiz, 'preview'))) throw new Error(`Notiz ließ sich nicht öffnen: ${notiz}`);
   await closeExtraLeaves(cdp);
+  if (opt.vorStart) await opt.vorStart();
   const t0 = Date.now();
   await cdp.evaluate(`
     const p = app.plugins.plugins[${JSON.stringify(PLUGIN_ID)}];
     window.__pzDone = null;
-    p.exportActive(${JSON.stringify(profil)}).then(() => { window.__pzDone = 'ok'; }, (e) => { window.__pzDone = 'fehler: ' + e; });
+    ${opt.befehl
+      ? `app.commands.executeCommandById(${JSON.stringify(opt.befehl)}); window.__pzDone = 'ok';`
+      : `p.exportActive(${JSON.stringify(profil)}).then(() => { window.__pzDone = 'ok'; }, (e) => { window.__pzDone = 'fehler: ' + e; });`}
     return true;
   `);
   const fertig = await pollUntil<string>(cdp, 'return window.__pzDone;', RENDER_FRIST_MS, 250);
   if (fertig !== 'ok') throw new Error(`Export ohne Abschluss (${String(fertig)})`);
+  // Ein Befehl kehrt sofort zurück: auf die Datei warten (die Notice „PDF saved“ steht erst nach dem Schreiben).
+  const ende = Date.now() + RENDER_FRIST_MS;
+  while (opt.befehl && !existsSync(pdf) && Date.now() < ende) await new Promise((r) => setTimeout(r, 250));
   const dauerMs = Date.now() - t0;
   await new Promise((r) => setTimeout(r, 800));
   if (!existsSync(pdf)) throw new Error(`Kein PDF entstanden: ${pdf}`);
   return { pdf, dauerMs, notices: await notices(cdp), konsole: [...konsole] };
+}
+
+/** Einstellung im laufenden Plugin setzen (nur für diesen Lauf; die Instanz ist Wegwerfware). */
+async function setzeEinstellung(cdp: Cdp, patch: Record<string, unknown>): Promise<void> {
+  await cdp.evaluate(`
+    const p = app.plugins.plugins[${JSON.stringify(PLUGIN_ID)}];
+    Object.assign(p.settings, ${JSON.stringify(patch)});
+    await p.saveSettings();
+    return true;
+  `);
+}
+
+function leseSichtbar(pid: number): string {
+  try { return execFileSync('osascript', ['-e', `tell application "System Events" to get visible of (first process whose unix id is ${pid})`], { encoding: 'utf8' }).trim(); } catch (e) { return `?(${(e as Error).message.slice(0, 60)})`; }
+}
+
+/** Prozess der Zweitinstanz per System Events verstecken (`visible`) oder zeigen; trifft nur diese PID, nie die reguläre Instanz. */
+function setzeSichtbar(pid: number, sichtbar: boolean): void {
+  execFileSync('osascript', ['-e', `tell application "System Events" to set visible of (first process whose unix id is ${pid}) to ${sichtbar}`]);
 }
 
 async function erwarteterHintergrund(cdp: Cdp): Promise<[number, number, number]> {
@@ -261,10 +362,11 @@ async function verbinde(port: number): Promise<Cdp> {
 
 /* ------------------------------------------------------------------- Lauf */
 
-async function fahreArm(arm: Arm, port: number, vaultDir: string, outDir: string, erster: boolean, nurGegenprobe: boolean, b: ReturnType<typeof createBilanz>): Promise<void> {
-  const { record, unmeasured } = b;
-  schreibeAppearance(vaultDir, arm);
-  const inst = starteZweitinstanz({
+async function fahreArm(arm: Arm, port: number, vaultDir: string, outDir: string, erster: boolean, nurGegenprobe: boolean, b: ReturnType<typeof createBilanz>, container = false): Promise<void> {
+  const { record, unmeasured, skipped } = b;
+  // Im Container steht die Instanz schon (Thema und Vault vor ihrem Start gesetzt, `--container-setup`): nichts starten, nichts beenden.
+  if (!container) schreibeAppearance(vaultDir, arm);
+  const inst = container ? null : starteZweitinstanz({
     port,
     profilBasis: `/tmp/obs-test-${REPO_NAME}-druck`,
     vaultName: REPO_NAME,
@@ -323,13 +425,21 @@ async function fahreArm(arm: Arm, port: number, vaultDir: string, outDir: string
         const soll: readonly number[] = profil === 'paper' ? [255, 255, 255] : hintergrund;
         const ist = befund.eckpixel;
         record(punktName(arm, profil, M4), !!ist && nahe(ist, soll, 6), `Ecke ${ist ? `rgb(${ist.join(', ')})` : '?'}, erwartet rgb(${soll.join(', ')})`);
+        {
+          const code = messeKontrast(ziel, 'Inline-Code');
+          const text = messeKontrast(ziel, 'Füllstoff');
+          const f = (k: ReturnType<typeof messeKontrast>): string => (k ? `${k.ratio.toFixed(1)}:1 (Text rgb(${k.fg.join(', ')}) auf rgb(${k.bg.join(', ')}))` : 'Wort nicht gefunden');
+          const detail = `Inline-Code ${f(code)}; Fließtext ${f(text)}`;
+          if (profil === 'paper') record(punktName(arm, profil, M5), !!code && !!text && Math.min(code.ratio, text.ratio) >= KONTRAST_PAPIER, `${detail} (Grenze ${KONTRAST_PAPIER}:1)`);
+          else record(punktName(arm, profil, M5), !!code && code.ratio >= KONTRAST_CODE, `${detail} (Grenze Inline-Code ${KONTRAST_CODE}:1)`);
+        }
         if (profil === 'paper') {
           record(punktName(arm, profil, M6), befund.tinte !== null && befund.tinte <= INK_MAX_PAPER, `Tintendeckung ${befund.tinte === null ? '?' : (befund.tinte * 100).toFixed(1)} % (Grenze ${INK_MAX_PAPER * 100} %)`);
         } else {
           console.log(`  Bildschirm: Tintendeckung ${befund.tinte === null ? '?' : (befund.tinte * 100).toFixed(1)} % (nur zur Kenntnis)`);
         }
       } catch (e) {
-        for (const m of [WEG, M1, M3, M4, ...(profil === 'paper' ? [M6] : [])]) unmeasured(punktName(arm, profil, m), (e as Error).message);
+        for (const m of [WEG, M1, M3, M4, M5, ...(profil === 'paper' ? [M6] : [])]) unmeasured(punktName(arm, profil, m), (e as Error).message);
       }
     }
 
@@ -348,16 +458,85 @@ async function fahreArm(arm: Arm, port: number, vaultDir: string, outDir: string
           && /MARK-FEHLER/i.test(text) && /MARK-NACH/i.test(text);
         record(`${arm.id} ${FEHLER}`, ok, `${befund.bytes} Bytes, ${lauf.dauerMs} ms (Frist ${RENDER_FRIST_MS} ms), Text um das Diagramm da, Fehlerkasten-Text: „${(/(error|parse|syntax)[^\n]{0,60}/i.exec(text)?.[0] ?? 'keiner gefunden').trim()}“`);
       } catch (e) { unmeasured(`${arm.id} ${FEHLER}`, (e as Error).message); }
+
+      // M7 — Seitenzahl „n/m“ auf Seite 2, und abschaltbar (die Abschaltung ist die Gegenprobe der Messung).
+      try {
+        await setzeEinstellung(cdp, { pageNumbers: true });
+        const an = await exportiere(cdp, vaultDir, 'Muster.md', 'paper', konsole);
+        const textAn = seitenText(an.pdf, 2);
+        await setzeEinstellung(cdp, { pageNumbers: false });
+        const aus = await exportiere(cdp, vaultDir, 'Muster.md', 'paper', konsole);
+        const textAus = seitenText(aus.pdf, 2);
+        await setzeEinstellung(cdp, { pageNumbers: true });
+        const zahl = /(?:^|\s)2\s*\/\s*\d+(?:\s|$)/;
+        record(`${arm.id} ${M7}`, zahl.test(textAn) && !zahl.test(textAus), `an: „${(zahl.exec(textAn)?.[0] ?? 'keine').trim()}“, aus: „${(zahl.exec(textAus)?.[0] ?? 'keine').trim()}“`);
+      } catch (e) { unmeasured(`${arm.id} ${M7}`, (e as Error).message); }
+
+      // M9 — jeder Befehl erzeugt sein Profil; `export-pdf` folgt der Einstellung. Erkennung am Eckpixel (Papier weiß, Bildschirm dunkel).
+      try {
+        const faelle: { befehl: string; einstellung: Profil; erwartet: Profil }[] = [
+          { befehl: 'export-pdf', einstellung: 'paper', erwartet: 'paper' },
+          { befehl: 'export-pdf', einstellung: 'screen', erwartet: 'screen' },
+          { befehl: 'export-pdf-screen', einstellung: 'paper', erwartet: 'screen' },
+          { befehl: 'export-pdf-paper', einstellung: 'screen', erwartet: 'paper' },
+        ];
+        const zeilen: string[] = [];
+        let alle = true;
+        for (const f of faelle) {
+          await setzeEinstellung(cdp, { desktopProfile: f.einstellung });
+          const lauf = await exportiere(cdp, vaultDir, 'Muster.md', f.erwartet, konsole, { befehl: `${PLUGIN_ID}:${f.befehl}` });
+          const ecke = werteAus(lauf.pdf).eckpixel;
+          const soll: readonly number[] = f.erwartet === 'paper' ? [255, 255, 255] : hintergrund;
+          const ok = !!ecke && nahe(ecke, soll, 6) && !FALLBACK_NOTICE.test(lauf.notices);
+          alle = alle && ok;
+          zeilen.push(`${f.befehl} (Einstellung ${f.einstellung}) → ${ok ? f.erwartet : `FALSCH, Ecke ${ecke ? `rgb(${ecke.join(', ')})` : '?'}`}`);
+        }
+        await setzeEinstellung(cdp, { desktopProfile: 'paper' });
+        record(`${arm.id} ${M9}`, alle, zeilen.join(' · '));
+      } catch (e) { unmeasured(`${arm.id} ${M9}`, (e as Error).message); }
+
+      // M11 — Prozess versteckt. Kontrolle: `visibilityState` muss danach `hidden` sein, sonst ist der Arm ungültig (nichts gemessen).
+      const pid = inst?.child.pid;
+      if (container) skipped(`${arm.id} ${M11}`, 'Container: kein Prozess zu verstecken (Xvfb ohne Fenster-Manager)');
+      else if (pid === undefined) unmeasured(`${arm.id} ${M11}`, 'keine PID der Zweitinstanz');
+      else {
+        let versteckt = false;
+        try {
+          let sicht = '?';
+          const lauf = await exportiere(cdp, vaultDir, 'Muster.md', 'paper', konsole, {
+            vorStart: async () => {
+              // Die Fokus-Emulation von `requireVisible` hielt das Fenster für Chromium sichtbar und fokussiert (gemessen: Prozess
+              // `visible=false`, aber `visibilityState` `visible`); M11 soll den echten Zustand messen.
+              await releaseFokusEmulation(cdp!);
+              setzeSichtbar(pid, false);
+              versteckt = true;
+              // Bis zu 8 s auf `hidden` warten; bleibt es `visible`, ist der Arm ungültig (gemessen 2026-11-01: n=3 von 4 Armen wurden `hidden`).
+              const ende = Date.now() + 8000;
+              do {
+                await new Promise((r) => setTimeout(r, 500));
+                sicht = await cdp!.evaluate<string>('return document.visibilityState;');
+              } while (sicht !== 'hidden' && Date.now() < ende);
+              console.log(`  M11-Kontrolle: visibilityState ${sicht}, hasFocus ${await cdp!.evaluate<string>('return String(document.hasFocus());')}, Prozess visible=${leseSichtbar(pid)}`);
+            },
+          });
+          const befund = werteAus(lauf.pdf);
+          const fehlt = fehlendeMarker(befund.text);
+          const desktop = !FALLBACK_NOTICE.test(lauf.notices) && /skia|chrom/i.test(befund.producer);
+          if (sicht !== 'hidden') unmeasured(`${arm.id} ${M11}`, `Kontrolle gescheitert: visibilityState „${sicht}“ nach dem Verstecken, der Arm war nicht verdeckt`);
+          else record(`${arm.id} ${M11}`, fehlt.length === 0, `${sicht}; ${desktop ? 'Desktop-Druck' : 'RÜCKFALL (einfacher Stil)'}; ${befund.bytes} Bytes, ${lauf.dauerMs} ms, Marker ${MARKER.length - fehlt.length} von ${MARKER.length}; Notice „${lauf.notices}“`);
+        } catch (e) { unmeasured(`${arm.id} ${M11}`, (e as Error).message); }
+        finally { if (versteckt) setzeSichtbar(pid, true); }
+      }
     }
   } finally {
     cdp?.close();
-    console.log(`  ${await beendeZweitinstanz(inst)}`);
+    if (inst) console.log(`  ${await beendeZweitinstanz(inst)}`);
   }
 }
 
 function kalibriere(pdf: string): void {
   const b = werteAus(pdf);
-  console.log(JSON.stringify({ ...b, text: undefined, markerFehlen: fehlendeMarker(b.text), textZeichen: b.text.length }, null, 2));
+  console.log(JSON.stringify({ ...b, text: undefined, markerFehlen: fehlendeMarker(b.text), textZeichen: b.text.length, kontrastCode: messeKontrast(pdf, 'Inline-Code'), kontrastText: messeKontrast(pdf, 'Füllstoff') }, null, 2));
 }
 
 async function main(): Promise<void> {
@@ -375,16 +554,26 @@ async function main(): Promise<void> {
   const outDir = args.value('out') ?? join(tmpdir(), 'paperize-print-matrix');
   mkdirSync(outDir, { recursive: true });
 
+  const container = args.has('container');
   const b = createBilanz({ punkte: sollListe(arme, nurGegenprobe) });
   const vaultDir = stagingVaultDir(REPO_NAME);
-  const log = buildVault({ repoRoot: REPO_ROOT, vaultDir, fixtureDir: FIXTURE_DIR, pluginId: PLUGIN_ID });
-  for (const z of log) console.log(`  · ${z}`);
+  if (args.has('container-setup')) {
+    // Vorbereitung für M12 (Linux im Container): Vault bauen und das Thema des Arms setzen, danach startet der Aufrufer den Container.
+    for (const z of buildVault({ repoRoot: REPO_ROOT, vaultDir, fixtureDir: FIXTURE_DIR, pluginId: PLUGIN_ID })) console.log(`  · ${z}`);
+    schreibeAppearance(vaultDir, arme[0] as Arm);
+    console.log(`Vault bereit für den Container: ${vaultDir} (Arm ${(arme[0] as Arm).id})`);
+    return;
+  }
+  if (!container) {
+    const log = buildVault({ repoRoot: REPO_ROOT, vaultDir, fixtureDir: FIXTURE_DIR, pluginId: PLUGIN_ID });
+    for (const z of log) console.log(`  · ${z}`);
+  }
 
   let erster = true;
   for (const arm of arme) {
     console.log(`\n== Arm ${arm.id}: ${arm.label} ==`);
     try {
-      await fahreArm(arm, port, vaultDir, outDir, erster && !nurGegenprobe, nurGegenprobe, b);
+      await fahreArm(arm, port, vaultDir, outDir, erster && !nurGegenprobe, nurGegenprobe, b, container);
     } catch (e) {
       console.error(`Arm ${arm.id} abgebrochen: ${(e as Error).message}`);
     }
