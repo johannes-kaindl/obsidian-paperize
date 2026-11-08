@@ -96,7 +96,7 @@
         "clock",
         "print-to-pdf"
       ],
-      "ref": "0.81.0",
+      "ref": "0.81.1",
       "rewrite": [
         [
           "../vendor/code-kit/pure/",

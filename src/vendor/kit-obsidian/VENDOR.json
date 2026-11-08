@@ -2,6 +2,6 @@
   "source": "obsidian-kit",
   "version": "0.66.1",
   "sha": "e88734e",
-  "vendored": "collapsible.ts, folder-suggest.ts, settings_walker.ts, help-setting.ts, confirm.ts, share-export.ts, clock.ts (obsidian-kit@0.81.0, 6236a84), print-to-pdf.ts (obsidian-kit@0.81.0, 6236a84)",
+  "vendored": "collapsible.ts, folder-suggest.ts, settings_walker.ts, help-setting.ts, confirm.ts, share-export.ts, clock.ts (obsidian-kit@0.81.1, ed133b6), print-to-pdf.ts (obsidian-kit@0.81.1, ed133b6)",
   "note": "Verbatim snapshot der obsidian-GEKOPPELTEN Kit-Schicht. Never hand-edit. Pins in tools/kit-sync.json, re-vendor via tools/sync-kit.sh (zentrales kit-sync im Dach). Von check:pure ausgenommen (benannte EXCLUDED-Konstante in scripts/check-pure.mjs). settings_walker.ts importiert folder-suggest.ts — beide muessen zusammen mitlaufen. help-setting.ts hat einen eigenen Pin; version/sha oben gelten fuer die uebrigen Dateien."
 }
