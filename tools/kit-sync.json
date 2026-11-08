@@ -86,7 +86,7 @@
       "modules": [
         "print-css"
       ],
-      "ref": "0.81.0"
+      "ref": "0.82.1"
     },
     {
       "dir": "src/vendor/kit-obsidian",

@@ -1,4 +1,4 @@
-// vendored from obsidian-kit@0.81.0, src/pure/print-css.ts — do not hand-edit; re-vendor via tools/sync-kit.sh
+// vendored from obsidian-kit@0.82.1, src/pure/print-css.ts — do not hand-edit; re-vendor via tools/sync-kit.sh
 /**
  * Druck-CSS für den Desktop-PDF-Export einer gerenderten Obsidian-Notiz.
  *
@@ -30,7 +30,7 @@ export function obsidianPrintResetCss(): string {
 }
 
 /**
- * Profil „Papier“: dunkler Text auf weißem Grund, keine Flächen, dünne Linien.
+ * Profil „Papier“: dunkler Text auf weißem Grund, keine Flächen, dünne Linien; erledigte Aufgaben behalten ihr Kästchen mit Haken (dunkel auf weiß).
  * Wirkt nur unter `.okit-print-page`; Bilder und SVG behalten ihre Farben.
  *
  * @example
@@ -44,5 +44,9 @@ export function paperProfileCss(): string {
     `${p} pre { border: 0.5pt solid #999 !important; }`,
     `${p} th, ${p} td { border: 0.5pt solid #999 !important; }`,
     `${p} a { text-decoration: underline; }`,
+    // Ein erledigtes Kästchen ist Füllung plus Haken-Maske in ::after. Das Profil druckt ohne Hintergründe (printBackground aus): Füllung, Maske und Hintergrundbild fallen weg, also nichts Sichtbares.
+    // Darum: dunkler Rahmen, der Haken als gedrehte Ecke aus zwei Rändern (Ränder drucken immer), Maske und Hintergrund aus.
+    `${p} input[type=checkbox]:checked { border-color: #1a1a1a !important; }`,
+    `${p} input[type=checkbox]:checked::after { content: "" !important; display: block !important; position: absolute !important; left: 4px !important; top: 0 !important; width: 4px !important; height: 8px !important; border: solid #1a1a1a !important; border-width: 0 2px 2px 0 !important; transform: rotate(45deg) !important; background: none !important; -webkit-mask: none !important; mask: none !important; }`,
   ].join("\n");
 }
