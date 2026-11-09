@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-11-09
+
 ### Added
 
 - On desktop, the PDF now follows your theme: callouts keep their box, Mermaid diagrams and formulas are drawn, and the fonts and colours of the theme carry over, with the fonts embedded. The text stays selectable. iPhone and iPad keep the plain vector PDF.
