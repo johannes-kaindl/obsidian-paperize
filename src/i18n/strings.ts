@@ -38,6 +38,7 @@ export const EN: Record<string, string> = {
   // nicht in der Oberflaeche — und waren bis Kit 0.30.0 dort deutsch festgeschrieben, auch fuer
   // englische Nutzer (gefunden 2026-09-02 auf einem README-Screenshot).
   "pdf.placeholder.math": "[Formula]",
+  "pdf.placeholder.mathSource": "[Formula: {0}]",
   "pdf.placeholder.graphic": "[Graphic]",
   "pdf.placeholder.image": "Image",
   "pdf.placeholder.imageFailed": "[Image could not be embedded]",
@@ -126,6 +127,7 @@ export const DE: Record<string, string> = {
   "confirm.cancel": "Abbrechen",
   "file.fallbackName": "Dokument",
   "pdf.placeholder.math": "[Formel]",
+  "pdf.placeholder.mathSource": "[Formel: {0}]",
   "pdf.placeholder.graphic": "[Grafik]",
   "pdf.placeholder.image": "Bild",
   "pdf.placeholder.imageFailed": "[Bild konnte nicht eingebettet werden]",

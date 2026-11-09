@@ -6,6 +6,15 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- On iPhone and iPad (and in the plain-style fallback on desktop), a formula no longer comes out as stray glyphs such as `=2`. It is now marked as `[Formula: E = mc^2]` with its LaTeX source (cut after 120 characters), or as `[Formula]` when the source is not available, and it is counted in the notice after export, as the documentation always said. Obsidian 1.15 draws formulas with MathJax 4, which writes the glyphs as real text; the old check took that text for ordinary content.
+- Corrected the documentation: the plain style shows a callout as plain text lines without its box, and a Mermaid diagram as its source code.
+
+### Changed
+
+- Internal: the PDF engine is now vendored from obsidian-kit 0.82.2 (the other library pins are unchanged).
+
 ## [0.6.0] — 2026-11-09
 
 ### Added

@@ -31,7 +31,7 @@ Theme, auf iPhone und iPad ist es ein schlichtes Vektor-PDF.
   Bilder (zu JPEG re-encodiert), Codeblöcke und einfache Tabellen.
 - **Graceful Degradation, nie ein gescheiterter Export:** Elemente außerhalb dieses
   Umfangs (Callouts, Mathe, Embeds und andere Obsidian-spezifische Renderings) werden
-  nicht kommentarlos verworfen, sondern als reiner Text vereinfacht dargestellt — der
+  nicht kommentarlos verworfen, sondern vereinfacht dargestellt (Callouts und Ähnliches als reiner Text, eine Formel als Markierung mit ihrer LaTeX-Quelle) — der
   Export scheitert nie. Eine Zusammenfassungs-Notice nach dem Export zeigt, wie viele
   Elemente vereinfacht wurden, damit du bei Bedarf gegen die Notiz prüfen kannst.
 - **Vier Ausgabeziele**, wählbar in den Einstellungen: neben der Notiz (Standard), der
@@ -195,8 +195,10 @@ Zwei Konsequenzen folgen aus diesem Aufbau, beide bewusst:
 
 - **Was Obsidian als Grafik statt als Text zeichnet** (Formeln), lässt sich nicht als Text
   übernehmen. Paperize markiert die Stelle, statt sie stillschweigend wegzulassen, und zählt
-  sie in der Notice nach dem Export mit. Ein Mermaid-Diagramm steht als Quelltext in einem
-  Codeblock im PDF.
+  sie in der Notice nach dem Export mit. Eine Formel steht als `[Formel: E = mc^2]` mit ihrer
+  LaTeX-Quelle (nach 120 Zeichen gekürzt), oder als `[Formel]`, wenn die Quelle fehlt. Ein
+  Mermaid-Diagramm steht als Quelltext in einem Codeblock im PDF. Ein Callout steht als
+  Textzeilen ohne seinen Kasten (den Kasten zeichnet nur der Desktop-Stil).
 - **Live-Ansichten** wie Bases- oder Dataview-Blöcke sind kein statisches Markdown; sie
   rendern als Bedienoberfläche und lassen sich in einem Dokument nicht sinnvoll abbilden.
 
@@ -208,8 +210,9 @@ gedruckt, was Obsidian zeichnet, Callouts und Diagramme erscheinen also gezeichn
 Paperize deckt einen bewusst begrenzten, gut getesteten Markdown-Umfang ab, siehe
 **Funktionen** oben. Alles, was Obsidian rendert und außerhalb dieses Umfangs liegt —
 Callouts, Mathe-Blöcke, Embeds und andere Plugin- oder Obsidian-spezifische Widgets —
-wird nicht kommentarlos verworfen: Der Textinhalt wird extrahiert und als reiner Text im
-PDF dargestellt, der Export läuft immer durch. Nach dem Export meldet eine Notice, wie
+wird nicht kommentarlos verworfen, der Export läuft immer durch. Callouts und Ähnliches
+zeigen ihren Textinhalt als reinen Text im PDF; eine Formel ist mit ihrer LaTeX-Quelle
+markiert, etwa `[Formel: E = mc^2]`. Nach dem Export meldet eine Notice, wie
 viele Elemente auf diese Weise vereinfacht wurden, damit du weißt, wann sich ein
 Abgleich mit der Notiz lohnt.
 

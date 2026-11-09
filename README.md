@@ -30,11 +30,12 @@ iPhone and iPad it is a plain vector PDF.
   as JPEG), fenced code blocks, and simple tables.
 - **Graceful degradation, never a failed export:** on iPhone and iPad (and when the desktop
   path is not available), elements outside that scope (callouts, math, embeds, and other
-  Obsidian-specific rendering) are simplified into plain text instead of breaking the
-  export. A single summary notice tells you how many elements were simplified so you can
+  Obsidian-specific rendering) are simplified instead of breaking the export: callouts
+  and the like become plain text, a formula becomes a marker with its LaTeX source. A single summary notice tells you how many elements were simplified so you can
   check the source note if it matters.
 
 <img src="https://raw.githubusercontent.com/johannes-kaindl/obsidian-paperize/main/docs/images/degradation.png" alt="A note with a callout and a formula on the left, the exported PDF on the right showing the callout text and a [Formula] placeholder, with the notice reporting that one element was simplified" width="600">
+
 - **Four output destinations**, chosen in settings: next to the note (default), the
   Obsidian attachment folder, a custom folder, or share/open out of the vault (the
   mobile share sheet, or the OS default app on desktop).
@@ -192,7 +193,10 @@ Two consequences follow from this design, and both are deliberate:
 
 - **Anything Obsidian draws as a graphic rather than as text** (formulas) cannot be carried
   over as text. Paperize marks the spot instead of dropping it silently, and counts it in
-  the notice you get after export. A Mermaid diagram appears as its source code, in a code block.
+  the notice you get after export. A formula appears as `[Formula: E = mc^2]` with its LaTeX
+  source (cut after 120 characters), or as `[Formula]` when the source is not available.
+  A Mermaid diagram appears as its source code, in a code block. A callout appears as plain
+  text lines without its box (the box is drawn in the desktop style only).
 - **Live views** such as Bases or Dataview blocks are not static Markdown; they render as
   interface chrome and cannot be reproduced meaningfully in a document.
 
@@ -204,8 +208,9 @@ own rendering is printed, so callouts and diagrams are drawn.
 Paperize targets a deliberately bounded, well-tested scope of Markdown, listed under
 **Features** above. Anything Obsidian renders that falls outside that scope — callouts,
 math blocks, embeds, and other plugin- or Obsidian-specific widgets — is not silently
-dropped: its text content is extracted and shown as plain text in the PDF, and the
-export always completes. After export, a notice reports how many elements were
+dropped, and the export always completes. Callouts and similar elements show their text
+content as plain text in the PDF; a formula is marked with its LaTeX source, for example
+`[Formula: E = mc^2]`. After export, a notice reports how many elements were
 simplified this way, so you know when to double-check a note against the PDF.
 
 ## Fonts & the Core-14 limitation

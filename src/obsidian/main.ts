@@ -20,6 +20,7 @@ import { exportCommands } from '../core/desktop-print';
 import type { DesktopProfile } from '../core/desktop-print';
 import { supportsPageMarginBoxes } from '../vendor/kit/print-document';
 import { PrintToPdfError, isDesktopPrintAvailable, printHtmlToPdf } from '../vendor/kit-obsidian/print-to-pdf';
+import { buildPdfPlaceholders } from './pdf-placeholders';
 
 const IMAGE_TIMEOUT_MS = 15000;
 const RENDER_TIMEOUT_MS = 10000;
@@ -188,10 +189,7 @@ export default class PaperizePlugin extends Plugin {
       // (sie ist Obsidian-frei), also reicht der Konsument die Texte durch. Seit Kit 0.44.0
       // dient dasselbe Optionsobjekt auch resolveImages() (imageFailed fuer ein Bild ohne
       // Alt-Text, das nicht dekodiert werden konnte).
-      const pdfPlaceholders = {
-        math: t('pdf.placeholder.math'), graphic: t('pdf.placeholder.graphic'),
-        image: t('pdf.placeholder.image'), imageFailed: t('pdf.placeholder.imageFailed'),
-      };
+      const pdfPlaceholders = buildPdfPlaceholders();
       const extracted = domToIrSync(holder, {
         pageBreakMarker: this.settings.pageBreakMarker,
         codes,
