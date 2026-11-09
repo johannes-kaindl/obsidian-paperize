@@ -92,6 +92,7 @@ const PUNKTE = [
   'D2 Nicht Unterstütztes wird GEZÄHLT, nicht verschwiegen',
   'D3 Text um das Unbekannte herum bleibt erhalten',
   'D4 Callout wird vereinfacht dargestellt, nicht verworfen',
+  'D6 Formel steht als Markierung mit LaTeX-Quelle im PDF, nicht als Glyphen-Rest',
   'D5 Notiz ohne Inhalt erzeugt Meldung statt leerem PDF',
   'E1 {version} zählt hoch statt zu überschreiben',
   'E2 ohne {version} wird überschrieben, nicht gezählt',
@@ -442,6 +443,14 @@ async function pruefeDegradation(cdp: Cdp, vaultDir: string): Promise<void> {
       text.includes('MARKMATHTEXT') && text.includes('MARKMATHH1'),
       text.includes('MARKMATHTEXT') ? 'Absatz und Überschrift im PDF' : 'Text um die Formel fehlt — Degradation hat mehr mitgenommen als sie sollte',
     );
+    // 0.6.1: MathJax 4 schreibt die Glyphen als Text; das PDF zeigte „=2“ statt einer Markierung. Gemessen wird die
+    // Markierung MIT der LaTeX-Quelle aus `mjx-math[data-latex]` und das Fehlen der Glyphen-Reste.
+    const markiert = /\[(Formula|Formel): E = mc\^2\]/.test(text);
+    record(
+      'D6 Formel steht als Markierung mit LaTeX-Quelle im PDF, nicht als Glyphen-Rest',
+      markiert && !text.includes('=2'),
+      markiert ? 'Markierung „[Formula|Formel: E = mc^2]“ im PDF' : `Markierung fehlt (Glyphen-Rest „=2“: ${text.includes('=2') ? 'ja' : 'nein'})`,
+    );
     record(
       'D4 Callout wird vereinfacht dargestellt, nicht verworfen',
       text.includes('MARKCALLOUT'),
@@ -450,6 +459,7 @@ async function pruefeDegradation(cdp: Cdp, vaultDir: string): Promise<void> {
   } else {
     const grund = 'Gegenstand nicht erreicht: kein PDF entstanden';
     unmeasured('D3 Text um das Unbekannte herum bleibt erhalten', grund);
+    unmeasured('D6 Formel steht als Markierung mit LaTeX-Quelle im PDF, nicht als Glyphen-Rest', grund);
     unmeasured('D4 Callout wird vereinfacht dargestellt, nicht verworfen', grund);
   }
 
