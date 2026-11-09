@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.6.1] — 2026-11-09
+
 ### Fixed
 
 - On iPhone and iPad (and in the plain-style fallback on desktop), a formula no longer comes out as stray glyphs such as `=2`. It is now marked as `[Formula: E = mc^2]` with its LaTeX source (cut after 120 characters), or as `[Formula]` when the source is not available, and it is counted in the notice after export, as the documentation always said. Obsidian 1.15 draws formulas with MathJax 4, which writes the glyphs as real text; the old check took that text for ordinary content.
