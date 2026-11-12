@@ -34,7 +34,7 @@ iPhone and iPad it is a plain vector PDF.
   and the like become plain text, a formula becomes a marker with its LaTeX source. A single summary notice tells you how many elements were simplified so you can
   check the source note if it matters.
 
-<img src="https://raw.githubusercontent.com/johannes-kaindl/obsidian-paperize/main/docs/images/degradation.png" alt="A note with a callout and a formula on the left, the exported PDF on the right showing the callout text and a [Formula] placeholder, with the notice reporting that one element was simplified" width="600">
+<img src="https://raw.githubusercontent.com/johannes-kaindl/obsidian-paperize/main/docs/images/degradation.png" alt="A note with a callout and a formula on the left, the exported PDF on the right showing the callout text and the formula marked as [Formula: c = \sqrt{a^2 + b^2}] with its LaTeX source, with the notice reporting that one element was simplified" width="600">
 
 - **Four output destinations**, chosen in settings: next to the note (default), the
   Obsidian attachment folder, a custom folder, or share/open out of the vault (the

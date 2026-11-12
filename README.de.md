@@ -216,7 +216,7 @@ markiert, etwa `[Formel: E = mc^2]`. Nach dem Export meldet eine Notice, wie
 viele Elemente auf diese Weise vereinfacht wurden, damit du weißt, wann sich ein
 Abgleich mit der Notiz lohnt.
 
-<img src="https://raw.githubusercontent.com/johannes-kaindl/obsidian-paperize/main/docs/images/degradation.png" alt="Links eine Notiz mit Callout und Formel, rechts das erzeugte PDF mit dem Callout-Text und einem Platzhalter für die Formel, dazu die Notice über ein vereinfachtes Element" width="600">
+<img src="https://raw.githubusercontent.com/johannes-kaindl/obsidian-paperize/main/docs/images/degradation.png" alt="Links eine Notiz mit Callout und Formel, rechts das erzeugte PDF mit dem Callout-Text und der Formel als Markierung [Formula: c = \sqrt{a^2 + b^2}] samt LaTeX-Quelle, dazu die Notice über ein vereinfachtes Element" width="600">
 
 ## Schriften & die Core-14-Grenze
 

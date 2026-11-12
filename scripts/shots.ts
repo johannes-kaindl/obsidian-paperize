@@ -114,6 +114,7 @@ const PDF_DEGRADATION = 'Release Notes.pdf';
 async function grundzustand(cdp: Cdp): Promise<void> {
   await cdp.evaluate(`
     const p = app.plugins.plugins[${JSON.stringify(PLUGIN_ID)}];
+    if (p.__druckOrig) { p.desktopPrint = p.__druckOrig; delete p.__druckOrig; }
     Object.assign(p.settings, { outputMode: "nextToNote", filenameTemplate: "{title}", customFolder: "" });
     await p.saveSettings();
     for (const f of app.vault.getFiles()) {
@@ -391,6 +392,10 @@ const SHOTS: Shot[] = [
     klasse: 'feature',
     async run(cdp) {
       await grundzustand(cdp);
+      // Dieses Bild zeigt den Vektor-Weg (iPhone, iPad, Rückfall): nur dort stehen Platzhalter mit Zähler. Am Desktop druckt Chromium die
+      // Formel und das Callout samt Rahmen, ohne Vereinfachung und ohne Notice. Die Druck-Naht abschalten, wie der GUI-Smoke es tut (Stand 0.6.1,
+      // 2026-11-12: ohne diese Zeile zeigte die Aufnahme den Chromium-Weg, ohne Notice).
+      await cdp.evaluate(`const p = app.plugins.plugins[${JSON.stringify(PLUGIN_ID)}]; p.__druckOrig = p.desktopPrint; p.desktopPrint = null; return true;`);
       if (!(await openExisting(cdp, NOTIZ_DEGRADATION, 'preview'))) return null;
       await closeExtraLeaves(cdp);
       if (!(await exportieren(cdp, PDF_DEGRADATION))) return null;
@@ -406,6 +411,13 @@ const SHOTS: Shot[] = [
         app.commands.executeCommandById(${JSON.stringify(`${PLUGIN_ID}:export-pdf`)});
         return true;
       `);
+      // Mit dem Schema {title} fragt das Plugin vor dem Ersetzen (seit Welle 22): wie ein Nutzer ersetzen, danach erscheint die Notice.
+      await pollUntil<boolean>(
+        cdp,
+        `const k = [...document.querySelectorAll(".modal-container .modal-button-container button")]; if (!k.length) return null; k[k.length - 1].click(); return true;`,
+        5_000,
+        150,
+      );
       const notice = await pollUntil<string>(
         cdp,
         'const t = [...document.querySelectorAll(".notice")].map((n) => n.textContent.trim()).filter((t) => /simplified|vereinfacht/i.test(t)).join(" | "); return t || null;',
