@@ -2,7 +2,7 @@
 // Reine Bausteine des Desktop-Druckwegs (Chromium über <webview>): Profile, Seiten-CSS, Satzspiegel.
 // Kein obsidian-Import; die Verdrahtung steht in src/obsidian/export-desktop.ts.
 import { pageCss } from '../vendor/kit/print-document';
-import { obsidianPrintResetCss, paperProfileCss } from '../vendor/kit/print-css';
+import { PRINT_PAGE_CLASS, obsidianPrintResetCss, paperProfileCss } from '../vendor/kit/print-css';
 
 export type DesktopProfile = 'paper' | 'screen';
 
@@ -72,11 +72,23 @@ export function paginationCss(s: DesktopPageSettings): string {
 }
 
 /** Das CSS nach dem gesammelten Theme-CSS: Rücksetzung, Profil, Paginierung, `@page`. */
+/** Das Pfeilsymbol hinter einem externen Link. Obsidian zeichnet es als `background-image: url("./public/external-link.svg")`: im Druckdokument
+ *  zeigt diese relative URL ins Leere (und das Papier-Profil druckt ohne Hintergründe), übrig bleibt nur die Lücke des `padding-inline-end`.
+ *  Als `::after` mit `content: url(data:…)` ist das Symbol Inhalt, nicht Hintergrund, und druckt in beiden Profilen. */
+function externalLinkIconCss(dataUrl: string): string {
+  const p = `.${PRINT_PAGE_CLASS}`;
+  return [
+    `${p} a.external-link { background-image: none !important; padding-inline-end: 0 !important; }`,
+    `${p} a.external-link::after { content: url("${dataUrl}"); display: inline-block; width: 0.825em; margin-inline-start: 0.1em; }`,
+  ].join('\n');
+}
+
 export function desktopExtraCss(
   profile: DesktopProfile,
   s: DesktopPageSettings,
   colors: PageColors,
   marginBoxes: boolean,
+  externalLinkIcon: string | null = null,
 ): string {
   const paper = profile === 'paper';
   const background = paper ? undefined : colors.background ?? undefined;
@@ -93,6 +105,7 @@ export function desktopExtraCss(
   const parts = [obsidianPrintResetCss(), EDGE_GUARD_CSS];
   if (paper) parts.push(paperProfileCss());
   else if (background !== undefined) parts.push(`html, body { background: ${background}; }`);
+  if (externalLinkIcon) parts.push(externalLinkIconCss(externalLinkIcon));
   parts.push(paginationCss(s), page);
   return parts.join('\n');
 }

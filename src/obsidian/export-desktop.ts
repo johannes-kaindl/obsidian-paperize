@@ -110,6 +110,15 @@ async function inlineImages(host: HTMLElement): Promise<void> {
   }
 }
 
+/** Das Symbol des externen Links aus Obsidians eigenem Paket als data:-URL; `null`, wenn es sich nicht holen lässt (dann bleibt die Lücke, wie bisher). */
+async function loadExternalLinkIcon(): Promise<string | null> {
+  try {
+    const res = await withTimeout(activeWindow.fetch(new URL('./public/external-link.svg', activeDocument.baseURI).href), IMAGE_TIMEOUT_MS);
+    if (!res || !res.ok) return null;
+    return `data:image/svg+xml;base64,${bytesToBase64(new Uint8Array(await res.arrayBuffer()))}`;
+  } catch { return null; }
+}
+
 async function inlineFontUrl(url: string): Promise<string | null> {
   try {
     const res = await withTimeout(activeWindow.fetch(url), IMAGE_TIMEOUT_MS);
@@ -165,12 +174,13 @@ export async function renderDesktopPdf(input: DesktopExportInput): Promise<Uint8
     await inlineImages(host);
     const colors = probeColors(host);
     const { css } = await collectDocumentCss(activeDocument, { inlineUrl: inlineFontUrl });
+    const linkIcon = await loadExternalLinkIcon();
     checkpoint();
 
     const marginBoxes = supportsPageMarginBoxes(activeWindow.navigator.userAgent);
     const html = buildPrintDocument({
       css,
-      extraCss: desktopExtraCss(profile, page, colors, marginBoxes),
+      extraCss: desktopExtraCss(profile, page, colors, marginBoxes, linkIcon),
       htmlClass: activeDocument.documentElement.className,
       bodyClass: profileBodyClass(profile, activeDocument.body.className),
       bodyStyle: activeDocument.body.getAttribute('style') ?? '',

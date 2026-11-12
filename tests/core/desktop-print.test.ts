@@ -65,6 +65,15 @@ describe('paginationCss', () => {
 });
 
 describe('desktopExtraCss', () => {
+  it('trägt das Symbol des externen Links als ::after-Inhalt, in beiden Profilen und nur mit Symbol', () => {
+    const icon = 'data:image/svg+xml;base64,PHN2Zy8+';
+    for (const p of ['paper', 'screen'] as const) {
+      const mit = desktopExtraCss(p, S, { background: null, muted: null }, true, icon);
+      expect(mit).toContain(`a.external-link::after { content: url("${icon}")`);
+      expect(mit).toContain('a.external-link { background-image: none !important; padding-inline-end: 0 !important; }');
+      expect(desktopExtraCss(p, S, { background: null, muted: null }, true)).not.toContain('external-link');
+    }
+  });
   it('paper css', () => {
     const css = desktopExtraCss('paper', S, { background: 'rgb(15, 16, 20)', muted: 'rgb(1, 2, 3)' }, true);
     expect(css).toContain('#1a1a1a');

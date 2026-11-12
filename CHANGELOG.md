@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **The arrow after an external link now shows in the desktop PDF**, in both looks (Paper and As in Obsidian). Before, the PDF left a blank gap behind the link text: Obsidian draws the arrow as a background image with a relative address that does not exist in the print document, and the Paper look prints without backgrounds anyway. The arrow is now drawn as content after the link.
+
 ## [0.6.1] — 2026-11-09
 
 ### Fixed
