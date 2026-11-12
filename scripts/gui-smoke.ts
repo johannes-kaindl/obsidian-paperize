@@ -110,11 +110,13 @@ const PUNKTE = [
   'F4 der Tab ist in fünf Sektionen gegliedert — auf einem der beiden Pfade',
   'F5 der gezeichnete Tab führt so viele Zeilen wie die Definitionen',
   'F6 die Hilfe-Zeile steht als erste Zeile oben im Settings-Tab',
+  'F7 die Zeile «Look on desktop» (desktopProfile) steht in den Definitionen, mit den Optionen Papier und Bildschirm und dem Standard Papier',
   'H1 Teilen: Fremddatei im Export-Ordner löst die Rückfrage aus, „Keep them“ lässt sie liegen',
   'H2 Teilen: „Delete them“ löscht die Fremddatei, eigene Reste verschwinden in beiden Fällen',
   'H3 Teilen: ohne Fremddatei keine Rückfrage, die Datei geht an die Standard-App (Stub)',
   'I1 Rückfall: wirft der Druck, entsteht das PDF im einfachen Stil und die Notice sagt es',
   'I2 Abbruch: kein Rückfall, keine Datei, weder Druck-Host noch Render-Container noch Webview im DOM',
+  'I3 Ältere Shell: Chromium unter 131 zeigt die Notice zu Seitenzahlen und Fußzeile, ein aktuelles Chromium nicht',
   'J1 Mermaid am Vektor-Weg: Der Quelltext steht im PDF, die Notiz bricht nicht ab',
 ] as const;
 
@@ -737,7 +739,7 @@ async function pruefeSettings(cdp: Cdp): Promise<void> {
   // Der native Pfad ab 1.13: der Host fragt die Definitionen selbst ab und nimmt die Zeilen
   // in die Settings-SUCHE auf. Der Obsidian-Mock kann das nicht prüfen (`Setting` ist dort
   // eine leere Klasse) — deshalb steht der Punkt hier.
-  const defs = await cdp.evaluate<{ gruppen: number; items: number; keys: string[]; slider: string[] } | null>(`
+  const defs = await cdp.evaluate<{ gruppen: number; items: number; keys: string[]; slider: string[]; profil: { typ: string; optionen: string[] } | null; profilStandard: string } | null>(`
     const tabs = app.setting.pluginTabs || [];
     const tab = tabs.find((t) => t.id === ${JSON.stringify(PLUGIN_ID)});
     if (!tab || typeof tab.getSettingDefinitions !== "function") return null;
@@ -750,6 +752,8 @@ async function pruefeSettings(cdp: Cdp): Promise<void> {
       items: items.length,
       keys: gruppen.map((g) => g.heading || g.key || "?"),
       slider: items.filter((i) => i.control && i.control.type === "slider").map((i) => i.name || "?"),
+      profil: (() => { const z = items.find((i) => i.control && i.control.key === "desktopProfile"); return z ? { typ: z.control.type, optionen: Object.keys(z.control.options || {}) } : null; })(),
+      profilStandard: String(app.plugins.plugins[${JSON.stringify(PLUGIN_ID)}].settings.desktopProfile),
     };
   `);
 
@@ -758,13 +762,22 @@ async function pruefeSettings(cdp: Cdp): Promise<void> {
     unmeasured('F1 getSettingDefinitions liefert die fünf Sektionen', grund);
     unmeasured('F2 alle Einstellungen sind über die Definitionen erreichbar', grund);
     unmeasured('F3 begrenzte Zahlenwerte sind Slider, keine Textfelder', grund);
+    unmeasured('F7 die Zeile «Look on desktop» (desktopProfile) steht in den Definitionen, mit den Optionen Papier und Bildschirm und dem Standard Papier', grund);
   } else {
     record('F1 getSettingDefinitions liefert die fünf Sektionen', defs.gruppen === 5, `${defs.gruppen} Gruppe(n): ${defs.keys.join(' · ')}`);
-    record('F2 alle Einstellungen sind über die Definitionen erreichbar', defs.items >= 17, `${defs.items} Einträge (Settings-Suche findet genau diese)`);
+    record('F2 alle Einstellungen sind über die Definitionen erreichbar', defs.items === 20, `${defs.items} Einträge (Soll genau 20; die Settings-Suche findet genau diese)`);
     // Begrenzte Zahlenwerte gehören in einen Slider: ein Textfeld mit if-Guard verwirft eine
     // Eingabe außerhalb der Grenzen STILL — nichts gespeichert, nichts gemeldet, das Feld
     // zeigt weiter den getippten Wert. Die Anzeige lügt.
     record('F3 begrenzte Zahlenwerte sind Slider, keine Textfelder', defs.slider.length >= 5, `${defs.slider.length} Slider: ${defs.slider.join(' · ')}`);
+    // F7 — die Zeile selbst (nicht ihre Wirkung: die misst M9 der Druck-Matrix). Gegenprobe: ohne die Zeile in `groups()`
+    // bleibt `profil` null, ohne die Option `screen` fehlt sie in der Liste, mit anderem Standard stimmt `profilStandard` nicht.
+    const optionen = defs.profil ? [...defs.profil.optionen].sort().join(',') : '';
+    record(
+      'F7 die Zeile «Look on desktop» (desktopProfile) steht in den Definitionen, mit den Optionen Papier und Bildschirm und dem Standard Papier',
+      defs.profil !== null && defs.profil.typ === 'dropdown' && optionen === 'paper,screen' && defs.profilStandard === 'paper',
+      defs.profil ? `${defs.profil.typ} · Optionen ${optionen} · Standard ${defs.profilStandard}` : 'keine Zeile mit control.key desktopProfile',
+    );
   }
 
   // Der Fallback-Pfad: dieselben Definitionen, nachgezeichnet in einklappbaren Sektionen.
@@ -928,6 +941,36 @@ async function pruefeDesktopWeg(cdp: Cdp, vaultDir: string): Promise<void> {
     );
   } catch (e) { unmeasured('I2 Abbruch: kein Rückfall, keine Datei, weder Druck-Host noch Render-Container noch Webview im DOM', (e as Error).message); }
   finally { await setzeDruck(cdp, 'null').catch(() => undefined); rmSync(ziel, { force: true }); }
+
+  // I3 — Chromium unter 131 kennt keine Seitenrand-Boxen: Seitenzahlen und Fußzeile fehlen, das Plugin sagt es einmal (Spec § 5).
+  // Beide Richtungen in einem Punkt: mit vorgetäuschtem Chromium 120 erscheint die Notice, mit dem echten Chromium nicht
+  // (ein Prüfer, der immer „Notice da“ sähe, wäre grün bei kaputter Version-Weiche). Je Arm ein frisch geladenes Plugin,
+  // weil `oldShellNoticed` die Notice je Instanz nur einmal zulässt. Der Druck wirft, damit der Rückfall den Lauf beendet.
+  const alteShell = /newer Obsidian/i;
+  try {
+    await setSettings(cdp, { pageNumbers: true, runningHeaderFooter: false });
+    const arm = async (userAgent: string | null): Promise<string> => {
+      if (!(await ladePluginFrisch(cdp))) throw new Error('Plugin ließ sich nicht frisch laden');
+      await setzeDruck(cdp, `async () => { throw new Error('Druck blockiert (Smoke I3)'); }`);
+      await cdp.evaluate(userAgent === null
+        ? `delete activeWindow.navigator.userAgent; return true;`
+        : `Object.defineProperty(activeWindow.navigator, 'userAgent', { get: () => ${JSON.stringify(userAgent)}, configurable: true }); return true;`);
+      rmSync(ziel, { force: true });
+      return exportNote(cdp, 'Smoke.md');
+    };
+    const mitAlt = await arm('Mozilla/5.0 (Macintosh) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Electron/28.0.0');
+    const mitEcht = await arm(null);
+    record(
+      'I3 Ältere Shell: Chromium unter 131 zeigt die Notice zu Seitenzahlen und Fußzeile, ein aktuelles Chromium nicht',
+      alteShell.test(mitAlt) && !alteShell.test(mitEcht),
+      `Chromium 120: ${alteShell.test(mitAlt) ? 'Notice da' : 'KEINE Notice'} · echtes Chromium: ${alteShell.test(mitEcht) ? 'Notice DA' : 'keine Notice'}`,
+    );
+  } catch (e) { unmeasured('I3 Ältere Shell: Chromium unter 131 zeigt die Notice zu Seitenzahlen und Fußzeile, ein aktuelles Chromium nicht', (e as Error).message); }
+  finally {
+    await cdp.evaluate(`delete activeWindow.navigator.userAgent; return true;`).catch(() => undefined);
+    await setzeDruck(cdp, 'null').catch(() => undefined);
+    rmSync(ziel, { force: true });
+  }
 
   // J1 — misst, was der Vektor-Weg (iPhone, iPad, Rückfall) mit einem Mermaid-Diagramm tut. Die README sagte „wird markiert“; der Code
   // (`extractCodeBlocks`) behandelt den Block wie Code. Das PDF entscheidet.
